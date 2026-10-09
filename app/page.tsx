@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -5,45 +6,53 @@ import DayAtGlance from "./components/day-at-glance";
 import OutdoorSchedule from "./components/outdoor-schedule";
 import { useAirQuality } from "./hooks/use-air-quality";
 
+function getIndiaDate() {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+  })
+    .format(new Date())
+    .toUpperCase();
+}
+
 export default function Home() {
   const { forecast, loading, error } = useAirQuality();
   const [currentHour, setCurrentHour] = useState<string | null>(null);
+  const [today, setToday] = useState<string | null>(null);
 
-  // Calculate the current hour in India after the component mounts.
   useEffect(() => {
-    const updateCurrentHour = () => {
-      setCurrentHour(
-        new Intl.DateTimeFormat("en-GB", {
-          timeZone: "Asia/Kolkata",
-          hour: "2-digit",
-          hourCycle: "h23",
-        }).format(new Date())
-      );
-    };
+  const updateIndiaTime = () => {
+    const now = new Date();
 
-    updateCurrentHour();
+    setCurrentHour(
+      new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        hourCycle: "h23",
+      }).format(now)
+    );
 
-    // Keep the displayed hour accurate if the page stays open.
-    const interval = window.setInterval(updateCurrentHour, 60_000);
+    setToday(getIndiaDate());
+  };
 
-    return () => window.clearInterval(interval);
-  }, []);
+  updateIndiaTime();
 
-  // Match the current India-time hour to the forecast timestamps.
+  const interval = window.setInterval(updateIndiaTime, 60_000);
 
+  return () => window.clearInterval(interval);
+}, []);
   const currentForecast = forecast.find((point) => {
-  const time = point.time;
+    const time = point.time;
 
-  if (!time) return false;
+    if (!time || currentHour === null) return false;
 
-  // Forecast points use HH:mm, e.g. "00:15".
-  // Find the point matching the current India-time hour.
-  const forecastHour = time.includes("T")
-    ? time.slice(11, 13)
-    : time.slice(0, 2);
+    const forecastHour = time.includes("T")
+      ? time.slice(11, 13)
+      : time.slice(0, 2);
 
-  return forecastHour === currentHour;
-});
+    return forecastHour === currentHour;
+  });
 
   const currentPm25 =
     !loading && !error && currentForecast
@@ -52,7 +61,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#F8FAF7] text-[#172019]">
-      {/* Header */}
       <header className="border-b border-[#DDE4DE]">
         <div className="mx-auto flex h-[76px] max-w-[1200px] items-center justify-between px-6">
           <div className="flex items-center gap-3">
@@ -99,15 +107,15 @@ export default function Home() {
           </div>
 
           <div className="text-right text-xs">
-            <div className="font-medium">TODAY · OCT 08</div>
+            <div className="font-medium">
+              TODAY{today ? ` · ${today}` : ""}
+            </div>
             <div className="text-[#59645C]">GREENFIELD SCHOOL</div>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
       <div className="mx-auto max-w-[1200px] px-6">
-        {/* Hero */}
         <section className="flex items-center justify-between gap-12 py-16">
           <div className="max-w-[760px]">
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#2F8F5B]">
@@ -138,11 +146,7 @@ export default function Home() {
             </p>
 
             <div className="mt-3 text-5xl font-medium tracking-[-0.04em]">
-              {loading
-                ? "…"
-                : currentPm25 !== null
-                  ? currentPm25
-                  : "—"}
+              {loading ? "…" : currentPm25 !== null ? currentPm25 : "—"}
               <span className="ml-2 text-lg font-normal text-[#59645C]">
                 µg/m³
               </span>
@@ -167,7 +171,7 @@ export default function Home() {
         {/* Air quality timeline */}
         <DayAtGlance />
 
-        {/* Outdoor schedule + selected activity */}
+        {/* Outdoor schedule and selected activity */}
         <OutdoorSchedule />
       </div>
     </main>
