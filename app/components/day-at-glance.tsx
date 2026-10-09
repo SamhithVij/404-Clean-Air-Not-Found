@@ -20,9 +20,23 @@ import {
   ILLUSTRATIVE_PM25_THRESHOLD,
 } from "../lib/recommendations";
 
-const chartActivities = activities.filter(
-  (activity) => activity.id !== "pe-8"
-);
+const chartActivities = activities.filter((activity) => activity.id !== "pe-8");
+
+const COLORS = {
+  blue: "#087FC1",
+  blueDark: "#06699F",
+  afternoon: "#4689B8",
+  orange: "#F07828",
+  orangeDark: "#A6531D",
+  green: "#278A5B",
+  greenDark: "#216E49",
+  text: "#46544C",
+  muted: "#657168",
+  heading: "#172019",
+  border: "#DDE4DE",
+  grid: "#E4EBE6",
+  surface: "#F8FAF7",
+};
 
 export default function DayAtGlance() {
   const {
@@ -35,28 +49,23 @@ export default function DayAtGlance() {
     location,
   } = useAirQuality();
 
-  const chartData = forecast.filter((point) => {
-    const [hour] = point.time.split(":").map(Number);
-    return hour >= 8 && hour < 16;
-  });
+  const chartData = forecast
+    .filter((point) => {
+      const [hour] = point.time.split(":").map(Number);
+      return hour >= 8 && hour < 16 && Number.isFinite(point.pm25);
+    })
+    .sort((a, b) => a.time.localeCompare(b.time));
 
-  const chartMax = Math.max(
-    60,
-    Math.ceil(
-      Math.max(0, ...chartData.map((point) => point.pm25)) / 10
-    ) * 10
-  );
+  const highestPm25 = Math.max(0, ...chartData.map((point) => point.pm25));
+  const chartMax = Math.max(60, Math.ceil((highestPm25 * 1.15) / 10) * 10);
 
   const formattedDate = forecastDate
-    ? new Date(`${forecastDate}T12:00:00+05:30`).toLocaleDateString(
-        "en-IN",
-        {
-          timeZone: "Asia/Kolkata",
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        }
-      )
+    ? new Date(`${forecastDate}T12:00:00+05:30`).toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
     : null;
 
   const formattedFetchTime = fetchedAt
@@ -69,30 +78,34 @@ export default function DayAtGlance() {
       })
     : null;
 
+  const activityStartTimes = [
+    ...new Set(chartActivities.map((activity) => activity.time)),
+  ].sort();
+
   return (
-    <section className="rounded-2xl border border-[#dfe6df] bg-white p-6 shadow-sm">
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <section className="rounded-2xl border border-[#D5DFD8] bg-white p-5 shadow-sm sm:p-6">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6d766f]">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#087FC1]">
             The day at a glance
           </p>
 
-          <h2 className="mt-1 text-xl font-medium text-[#17201a]">
-            Pollution rises. The school day continues.
+          <h2 className="mt-1 text-xl font-medium text-[#172019]">
+            Understand the forecast. Plan the school day.
           </h2>
 
-          <p className="mt-1 text-xs text-[#7a827c]">
+          <p className="mt-1 text-xs text-[#46544C]">
             {loading
               ? "Loading air-quality forecast…"
               : error
-                ? "Live forecast unavailable"
-                : `${location} · ${formattedDate} · PM2.5 in µg/m³`}
+                ? "Forecast unavailable"
+                : `${location} · ${formattedDate ?? "Date unavailable"} · PM2.5 in µg/m³`}
           </p>
 
           {!loading && !error && source && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-[#59645C]">
-              <span className="rounded-full bg-[#EEF7F0] px-2 py-1 font-semibold text-[#278A5B]">
-                Forecast API connected
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#46544C]">
+              <span className="rounded-full border border-[#B9E0CA] bg-[#EAF7EF] px-2 py-1 font-semibold text-[#216E49]">
+                Forecast connected
               </span>
               <span>Source: {source}</span>
               {formattedFetchTime && (
@@ -102,152 +115,186 @@ export default function DayAtGlance() {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-4 text-xs text-[#68716a]">
+        <div className="flex shrink-0 flex-wrap gap-x-4 gap-y-2 text-xs text-[#46544C]">
           <span className="flex items-center gap-2">
-            <span className="h-0.5 w-4 bg-[#1597d3]" />
+            <span className="h-[3px] w-5 rounded-full bg-[#087FC1]" />
             Forecast
           </span>
           <span className="flex items-center gap-2">
-            <span className="h-0.5 w-4 bg-[#e59b59]" />
-            Planning reference
+            <span className="h-[3px] w-5 rounded-full bg-[#F07828]" />
+            35 µg/m³ reference
           </span>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex h-[280px] items-center justify-center rounded-lg bg-[#F8FAF7]">
-          <p className="text-sm text-[#68716a]">
+        <div className="flex h-[280px] items-center justify-center rounded-lg bg-[#F5F8F6]">
+          <p className="text-sm text-[#46544C]">
             Fetching the air-quality forecast…
           </p>
         </div>
       ) : error || chartData.length === 0 ? (
-        <div className="flex h-[280px] flex-col items-center justify-center rounded-lg bg-[#F8FAF7] px-6 text-center">
+        <div className="flex h-[280px] flex-col items-center justify-center rounded-lg bg-[#F5F8F6] px-6 text-center">
           <p className="text-sm font-semibold text-[#172019]">
             Forecast unavailable
           </p>
-          <p className="mt-2 max-w-md text-xs leading-5 text-[#68716a]">
+          <p className="mt-2 max-w-md text-xs leading-5 text-[#46544C]">
             {error ??
               "No forecast values are available between 08:00 and 16:00."}
           </p>
-          <p className="mt-2 text-[10px] text-[#7a827c]">
-            Simulated values are not substituted for missing live data.
+          <p className="mt-2 text-[11px] text-[#46544C]">
+            No simulated values are substituted for missing forecast data.
           </p>
         </div>
       ) : (
-        <div className="h-[280px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={chartData}
-              margin={{ top: 20, right: 20, left: 10, bottom: 10 }}
-            >
-              <ReferenceArea
-                x1="09:30"
-                x2="12:15"
-                y1={0}
-                y2={chartMax}
-                fill="#f4a261"
-                fillOpacity={0.1}
-              />
+        <>
+          <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-[#46544C]">
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-sm bg-[#F07828]/20 ring-1 ring-[#F07828]/70" />
+              Morning window · 09:30–12:15
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-sm bg-[#4689B8]/20 ring-1 ring-[#4689B8]/70" />
+              Afternoon window · 13:00–15:45
+            </span>
+            <span>Dashed markers indicate activity start times.</span>
+          </div>
 
-              <ReferenceArea
-                x1="13:00"
-                x2="15:45"
-                y1={0}
-                y2={chartMax}
-                fill="#78b98a"
-                fillOpacity={0.08}
-              />
+          <div className="h-[300px] w-full sm:h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={chartData}
+                margin={{ top: 20, right: 12, left: 4, bottom: 12 }}
+              >
+                <ReferenceArea
+                  x1="09:30"
+                  x2="12:15"
+                  y1={0}
+                  y2={chartMax}
+                  fill="#F07828"
+                  fillOpacity={0.14}
+                  ifOverflow="hidden"
+                />
 
-              <CartesianGrid
-                stroke="#e9eeea"
-                strokeDasharray="2 4"
-                vertical={false}
-              />
+                <ReferenceArea
+                  x1="13:00"
+                  x2="15:45"
+                  y1={0}
+                  y2={chartMax}
+                  fill="#4689B8"
+                  fillOpacity={0.13}
+                  ifOverflow="hidden"
+                />
 
-              <XAxis
-                dataKey="time"
-                interval={3}
-                tick={{ fontSize: 11, fill: "#69736c" }}
-                axisLine={false}
-                tickLine={false}
-              />
+                <CartesianGrid
+                  stroke="#E4EBE6"
+                  strokeDasharray="3 4"
+                  vertical={false}
+                />
 
-              <YAxis
-                domain={[0, chartMax]}
-                tick={{ fontSize: 11, fill: "#69736c" }}
-                axisLine={false}
-                tickLine={false}
-                width={42}
-                label={{
-                  value: "PM2.5 µg/m³",
-                  angle: -90,
-                  position: "insideLeft",
-                  fill: "#69736c",
-                  fontSize: 10,
-                }}
-              />
+                <XAxis
+                  dataKey="time"
+                  interval="preserveStartEnd"
+                  minTickGap={24}
+                  tick={{ fontSize: 11, fill: COLORS.text }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(value: string) =>
+                    activityStartTimes.includes(value) ? `${value} •` : value
+                  }
+                />
 
-              <Tooltip
-                contentStyle={{
-                  border: "1px solid #dfe6df",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                }}
-                formatter={(value) => [
-                  `${value} µg/m³`,
-                  "Forecast PM2.5",
-                ]}
-                labelFormatter={(label) => `Time: ${label}`}
-              />
+                <YAxis
+                  domain={[0, chartMax]}
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: COLORS.text }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={43}
+                  label={{
+                    value: "PM2.5 (µg/m³)",
+                    angle: -90,
+                    position: "insideLeft",
+                    fill: COLORS.text,
+                    fontSize: 10,
+                  }}
+                />
 
-              <ReferenceLine
-                y={ILLUSTRATIVE_PM25_THRESHOLD}
-                stroke="#e59b59"
-                strokeDasharray="5 5"
-                label={{
-                  value: "Illustrative reference",
-                  position: "insideTopRight",
-                  fontSize: 10,
-                  fill: "#b87536",
-                }}
-              />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#FFFFFF",
+                    border: "1px solid #DDE4DE",
+                    borderRadius: "10px",
+                    boxShadow: "0 4px 14px rgba(23,32,25,0.08)",
+                    fontSize: "12px",
+                  }}
+                  formatter={(value) => [`${value} µg/m³`, "Forecast PM2.5"]}
+                  labelFormatter={(label) => `Time: ${label}`}
+                />
 
-              <Line
-                type="monotone"
-                dataKey="pm25"
-                stroke="#1597d3"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{ r: 4 }}
-                isAnimationActive={false}
-                connectNulls={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+                <ReferenceLine
+                  y={ILLUSTRATIVE_PM25_THRESHOLD}
+                  stroke="#F07828"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  label={{
+                    value: "35 · illustrative reference",
+                    position: "insideTopRight",
+                    fontSize: 10,
+                    fill: "#A6531D",
+                  }}
+                />
+
+                {activityStartTimes.map((time) => (
+                  <ReferenceLine
+                    key={time}
+                    x={time}
+                    stroke="#84938A"
+                    strokeDasharray="3 5"
+                    strokeOpacity={0.75}
+                  />
+                ))}
+
+                <Line
+                  type="monotone"
+                  dataKey="pm25"
+                  name="Forecast PM2.5"
+                  stroke="#087FC1"
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={{
+                    r: 5,
+                    fill: "#087FC1",
+                    stroke: "#FFFFFF",
+                    strokeWidth: 2,
+                  }}
+                  isAnimationActive={false}
+                  connectNulls={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] font-medium">
+            <span className="text-[#087FC1]">
+              Forecast · {chartData[0].time}–
+              {chartData[chartData.length - 1].time}
+            </span>
+            <span className="text-[#46544C]">
+              Dashed vertical markers = scheduled activity start times
+            </span>
+          </div>
+        </>
       )}
 
-      <div className="mt-1 flex flex-wrap justify-between gap-2 text-[10px] font-medium uppercase tracking-wide">
-        <span className="text-[#1597d3]">
-          {chartData.length > 0
-            ? `Forecast · ${chartData[0].time}–${chartData[chartData.length - 1].time}`
-            : "Forecast not loaded"}
-        </span>
-        <span className="text-[#e97832]">
-          Shaded morning period
-        </span>
-        <span className="text-[#3c9660]">
-          Shaded afternoon period
-        </span>
-      </div>
-
-      <div className="mt-5 border-t border-[#e8ece9] pt-4">
+      <div className="mt-5 border-t border-[#DDE4DE] pt-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7a827c]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#46544C]">
             Scheduled outdoor activities
           </p>
-          <span className="text-[10px] text-[#7a827c]">
-            Based on forecast · {`≥ ${ILLUSTRATIVE_PM25_THRESHOLD} µg/m³`}
+          <span className="text-[11px] text-[#46544C]">
+            Activity-window average · reference ≥{" "}
+            {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³
           </span>
         </div>
 
@@ -259,6 +306,7 @@ export default function DayAtGlance() {
                 : classifyActivityAirQuality(activity, forecast);
 
             const elevated = classification?.elevated === true;
+
             const unavailable =
               loading ||
               Boolean(error) ||
@@ -267,15 +315,15 @@ export default function DayAtGlance() {
             return (
               <div
                 key={activity.id}
-                className="flex items-start gap-2 rounded-md bg-[#F8FAF7] px-3 py-2"
+                className="flex items-start gap-2 rounded-lg border border-[#E2EAE4] bg-[#F8FAF7] px-3 py-3"
               >
                 <span
-                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                  className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
                     unavailable
-                      ? "bg-[#9ca3af]"
+                      ? "bg-[#9CA3AF]"
                       : elevated
-                        ? "bg-[#e97832]"
-                        : "bg-[#3c9660]"
+                        ? "bg-[#F07828]"
+                        : "bg-[#278A5B]"
                   }`}
                 />
 
@@ -283,16 +331,18 @@ export default function DayAtGlance() {
                   <p className="text-xs font-medium text-[#172019]">
                     {activity.name}
                   </p>
-                  <p className="mt-0.5 text-[10px] text-[#7a827c]">
+
+                  <p className="mt-1 text-[11px] tabular-nums text-[#46544C]">
                     {activity.time}–{activity.end}
                   </p>
+
                   <p
-                    className={`mt-1 text-[10px] font-semibold ${
+                    className={`mt-1 text-[11px] font-semibold ${
                       unavailable
-                        ? "text-[#7a827c]"
+                        ? "text-[#657168]"
                         : elevated
-                          ? "text-[#c45e20]"
-                          : "text-[#278A5B]"
+                          ? "text-[#A6531D]"
+                          : "text-[#216E49]"
                     }`}
                   >
                     {loading
@@ -310,13 +360,13 @@ export default function DayAtGlance() {
         </div>
       </div>
 
-      <div className="mt-4 border-t border-[#edf0ed] pt-3 text-[11px] leading-5 text-[#7a827c]">
-        PM2.5 values are modelled forecasts, not live measurements from
-        a local monitoring station. Activity labels are calculated from
-        the average forecast during each scheduled window. The{" "}
-        {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ threshold is an illustrative
-        planning reference, not a validated school safety standard.
-        These classifications do not determine whether an activity is safe.
+      <div className="mt-4 border-t border-[#E4EBE6] pt-3 text-[11px] leading-5 text-[#46544C]">
+        PM2.5 values are modelled forecasts, not live measurements from a
+        local monitoring station. Activity labels use the average forecast
+        during each scheduled window. The {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³
+        threshold is an illustrative planning reference, not a validated
+        school safety standard. Neither the forecast nor these classifications
+        determine whether an activity is safe.
       </div>
     </section>
   );

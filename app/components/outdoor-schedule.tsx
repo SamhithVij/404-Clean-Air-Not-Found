@@ -62,7 +62,6 @@ export default function OutdoorSchedule() {
 
   function getClassification(activity: Activity) {
     if (loading || error || forecast.length === 0) return null;
-
     return classifyActivityAirQuality(activity, forecast);
   }
 
@@ -76,7 +75,6 @@ export default function OutdoorSchedule() {
 
   function getActivityAverage(activity: Activity): number | null {
     if (forecast.length === 0 || loading || error) return null;
-
     return calculateAveragePm25(activity.time, activity.end, forecast);
   }
 
@@ -86,7 +84,6 @@ export default function OutdoorSchedule() {
     if (!activity.movable || !isElevated(activity)) return null;
 
     const currentPm25 = getActivityAverage(activity);
-
     if (currentPm25 === null) return null;
 
     return findBestFeasibleWindow(
@@ -118,11 +115,7 @@ export default function OutdoorSchedule() {
       ? candidateWindows
           .filter((window) => {
             const currentPm25 = getActivityAverage(selectedActivity);
-
-            return (
-              currentPm25 !== null &&
-              window.pm25 < currentPm25
-            );
+            return currentPm25 !== null && window.pm25 < currentPm25;
           })
           .map((window) =>
             evaluateWindow(
@@ -225,7 +218,7 @@ export default function OutdoorSchedule() {
       <section className="mt-10 grid grid-cols-1 gap-6 pb-16 lg:grid-cols-[minmax(0,1.8fr)_minmax(340px,0.9fr)]">
         <div className="overflow-hidden rounded-xl border border-[#DDE4DE] bg-white">
           <div className="border-b border-[#E8ECE8] px-7 py-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#59645C]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#46544C]">
               Your outdoor schedule
             </p>
 
@@ -234,7 +227,7 @@ export default function OutdoorSchedule() {
                 Six activities. One school day.
               </h2>
 
-              <span className="shrink-0 text-xs text-[#E47B38]">
+              <span className="shrink-0 text-xs text-[#D97732]">
                 {loading
                   ? "Checking forecast…"
                   : error
@@ -243,13 +236,13 @@ export default function OutdoorSchedule() {
               </span>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-[#59645C]">
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-[#46544C]">
               {loading ? (
                 <span className="rounded-full bg-[#F8F3E8] px-2 py-1">
                   Loading forecast…
                 </span>
               ) : error ? (
-                <span className="rounded-full bg-[#FFF0E8] px-2 py-1 text-[#B75B2A]">
+                <span className="rounded-full bg-[#FFF0E8] px-2 py-1 text-[#A6531D]">
                   Live forecast unavailable
                 </span>
               ) : (
@@ -267,7 +260,7 @@ export default function OutdoorSchedule() {
             </div>
           </div>
 
-          <div className="hidden grid-cols-[90px_1.8fr_1.2fr_1.1fr] gap-5 border-b border-[#E8ECE8] px-7 py-3 text-[9px] font-semibold uppercase tracking-wider text-[#7A827C] sm:grid">
+          <div className="hidden grid-cols-[90px_1.8fr_1.2fr_1.1fr] gap-5 border-b border-[#E8ECE8] px-7 py-3 text-[9px] font-semibold uppercase tracking-wider text-[#657168] sm:grid">
             <span>Time</span>
             <span>Activity / forecast status</span>
             <span>Forecast PM2.5</span>
@@ -301,7 +294,7 @@ export default function OutdoorSchedule() {
                     <p className="text-sm font-medium text-[#172019]">
                       {activity.time}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-[#8A918B]">
+                    <p className="mt-0.5 text-[10px] text-[#657168]">
                       → {activity.end}
                     </p>
                   </div>
@@ -310,45 +303,45 @@ export default function OutdoorSchedule() {
                     <p className="text-sm font-medium text-[#172019]">
                       {activity.name}
                     </p>
-                    <p className="mt-1 text-[11px] text-[#7A827C]">
+                    <p className="mt-1 text-[11px] text-[#657168]">
                       {activity.detail}
                     </p>
-                    <p
-                      className={`mt-2 text-[11px] font-medium ${
-                        accepted
-                          ? "text-[#278A5B]"
-                          : loading || error || !classification
-                            ? "text-[#7A827C]"
-                            : elevated
-                              ? "text-[#E47B38]"
-                              : "text-[#278A5B]"
-                      }`}
-                    >
-                      •{" "}
-                      {accepted
-                        ? "Rescheduled this session"
-                        : loading
-                          ? "Loading forecast…"
-                          : error || !classification
-                            ? "Classification unavailable"
-                            : classification.label}
-                    </p>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {accepted ? (
+                        <span className="rounded-full bg-[#EEF7F0] px-2 py-1 text-[10px] font-semibold text-[#278A5B]">
+                          Rescheduled
+                        </span>
+                      ) : elevated ? (
+                        <span className="rounded-full bg-[#FFF0E8] px-2 py-1 text-[10px] font-semibold text-[#A6531D]">
+                          Review recommended
+                        </span>
+                      ) : classification ? (
+                        <span className="rounded-full bg-[#F3F7F3] px-2 py-1 text-[10px] font-semibold text-[#46544C]">
+                          {classification.label}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-[#F3F7F3] px-2 py-1 text-[10px] font-semibold text-[#657168]">
+                          Awaiting forecast
+                        </span>
+                      )}
+
+                      {!activity.movable && (
+                        <span className="text-[10px] text-[#657168]">
+                          Fixed activity
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div>
-                    <p className="text-sm text-[#172019]">
-                      {loading
-                        ? "Loading…"
-                        : currentPm25 === null
-                          ? "Unavailable"
-                          : `${currentPm25} µg/m³`}
-                    </p>
-                    <p className="mt-1 text-[11px] leading-5 text-[#7A827C]">
+                    <p className="text-sm font-semibold text-[#172019]">
                       {currentPm25 === null
-                        ? "No forecast values for this time"
-                        : currentPm25 >= ILLUSTRATIVE_PM25_THRESHOLD
-                          ? "Above illustrative reference"
-                          : "Below illustrative reference"}
+                        ? "Unavailable"
+                        : `${currentPm25} µg/m³`}
+                    </p>
+                    <p className="mt-1 text-[10px] text-[#657168]">
+                      Estimated activity average
                     </p>
                   </div>
 
@@ -356,40 +349,32 @@ export default function OutdoorSchedule() {
                     {accepted ? (
                       <>
                         <p className="text-sm font-semibold text-[#278A5B]">
-                          Rescheduled
-                        </p>
-                        <p className="mt-1 text-xs text-[#59645C]">
                           {accepted.time}–{accepted.end}
+                        </p>
+                        <p className="mt-1 text-[10px] text-[#657168]">
+                          Accepted for this demo
                         </p>
                       </>
                     ) : recommendation ? (
                       <>
-                        <p className="text-sm font-medium text-[#278A5B]">
+                        <p className="text-sm font-semibold text-[#087FC1]">
                           {recommendation.start}–{recommendation.end}
                         </p>
-                        <p className="mt-1 text-[10px] text-[#7A827C]">
-                          {recommendation.pm25} µg/m³ estimated
+                        <p className="mt-1 text-[10px] text-[#657168]">
+                          {recommendation.pm25} µg/m³ estimated average
                         </p>
                       </>
-                    ) : loading ? (
-                      <p className="text-sm text-[#7A827C]">
-                        Calculating…
-                      </p>
-                    ) : error || forecast.length === 0 ? (
-                      <p className="text-sm font-medium text-[#E47B38]">
-                        Forecast unavailable
-                      </p>
-                    ) : elevated && activity.movable ? (
-                      <p className="text-sm font-medium text-[#E47B38]">
-                        No feasible window
-                      </p>
-                    ) : !activity.movable && elevated ? (
-                      <p className="text-sm font-medium text-[#7A827C]">
-                        Fixed activity
-                      </p>
                     ) : (
-                      <p className="text-sm font-medium text-[#278A5B]">
-                        No change suggested
+                      <p className="text-xs text-[#657168]">
+                        {loading
+                          ? "Checking…"
+                          : error
+                            ? "Forecast unavailable"
+                            : !activity.movable
+                              ? "Fixed activity"
+                              : elevated
+                                ? "No feasible option found"
+                                : "No change suggested"}
                       </p>
                     )}
                   </div>
@@ -397,124 +382,69 @@ export default function OutdoorSchedule() {
               );
             })}
           </div>
-
-          <div className="px-7 py-5 text-[10px] leading-5 text-[#7A827C]">
-            Forecast values are modelled estimates from the selected API,
-            not local station measurements. Proposed slots preserve activity
-            duration and check detected timetable conflicts. The{" "}
-            {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ reference is illustrative and
-            is not a validated school safety standard.
-          </div>
         </div>
 
-        <aside className="rounded-xl border border-[#DDE4DE] bg-white p-7">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7A827C]">
-            Selected for review
+        <aside className="rounded-xl border border-[#DDE4DE] bg-white p-6">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#46544C]">
+            Activity details
           </p>
 
           <h2 className="mt-2 text-2xl font-medium tracking-tight text-[#172019]">
             {selectedActivity.name}
           </h2>
 
-          <p className="mt-1 text-xs text-[#59645C]">
-            {selectedActivity.time}–{selectedActivity.end} ·{" "}
-            {selectedActivity.location}
+          <p className="mt-2 text-sm leading-6 text-[#46544C]">
+            {selectedActivity.detail}
           </p>
 
-          <div className="mt-7 border-t border-[#E8ECE8] pt-6">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#E47B38]">
-              Forecast-based classification
+          <div className="mt-5 rounded-lg border border-[#E8ECE8] bg-[#F8FAF7] p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#657168]">
+              Current scheduled time
             </p>
-
-            <p className="mt-2 text-sm leading-6 text-[#59645C]">
-              {loading
-                ? "Loading the forecast for this activity."
-                : error || !selectedClassification
-                  ? "The forecast classification is unavailable."
-                  : `${selectedClassification.label}: ${selectedClassification.averagePm25} µg/m³ average PM2.5. The ${ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ threshold is an illustrative planning reference, not a safety standard.`}
+            <p className="mt-2 text-2xl font-semibold text-[#172019]">
+              {selectedActivity.time}–{selectedActivity.end}
             </p>
-
-            <div className="mt-5 grid grid-cols-2 gap-5">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-[#8A918B]">
-                  Forecast average
-                </p>
-                <p className="mt-1 text-xl font-medium text-[#172019]">
-                  {loading ? "Loading…" : currentSelectedAverage()}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-[#8A918B]">
-                  Illustrative reference
-                </p>
-                <p className="mt-1 text-xl font-medium text-[#172019]">
-                  {ILLUSTRATIVE_PM25_THRESHOLD}{" "}
-                  <span className="text-xs font-normal">µg/m³</span>
-                </p>
-              </div>
-            </div>
+            <p className="mt-1 text-xs text-[#657168]">
+              {selectedActivity.durationMinutes}-minute activity
+            </p>
           </div>
 
-          {selectedIsElevated ? (
-            <div className="mt-7 rounded-lg bg-[#EEF7F0] p-5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#278A5B]">
-                {acceptedTime
-                  ? "Accepted schedule change"
-                  : "Best feasible lower-exposure window"}
-              </p>
+          <div className="mt-4 rounded-lg border border-[#E8ECE8] p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#657168]">
+              Estimated average PM2.5
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-[#172019]">
+              {currentSelectedAverage()}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[#657168]">
+              Forecast-based estimate for the activity&apos;s scheduled time.
+            </p>
+          </div>
 
-              {acceptedTime ? (
-                <>
-                  <p className="mt-1 text-2xl font-medium text-[#172019]">
-                    {acceptedTime.time}–{acceptedTime.end}
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-[#59645C]">
-                    Accepted for this demo session. The forecast average
-                    reflects the new time; this does not establish that the
-                    conditions are safe.
-                  </p>
-                </>
-              ) : loading ? (
-                <p className="mt-2 text-sm text-[#59645C]">
-                  Waiting for live forecast…
-                </p>
-              ) : error || forecast.length === 0 ? (
-                <p className="mt-2 text-sm leading-6 text-[#59645C]">
-                  A recommendation cannot be calculated because the live
-                  forecast is unavailable.
-                </p>
-              ) : bestWindow ? (
-                <>
-                  <p className="mt-1 text-2xl font-medium text-[#172019]">
-                    {bestWindow.start}–{bestWindow.end}
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-[#59645C]">
-                    Estimated average PM2.5:{" "}
-                    <span className="font-medium">
-                      {bestWindow.pm25} µg/m³
-                    </span>
-                    . No detected timetable conflicts.
-                  </p>
-                </>
-              ) : (
-                <p className="mt-2 text-sm leading-6 text-[#59645C]">
-                  No lower-exposure window without a detected timetable
-                  conflict was found during school hours.
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="mt-7 rounded-lg bg-[#F3F7F3] p-5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#278A5B]">
-                Current timing
+          {selectedClassification && (
+            <div
+              className={`mt-4 rounded-lg border p-4 ${
+                selectedClassification.elevated
+                  ? "border-[#F1D0BD] bg-[#FFF7F0]"
+                  : "border-[#E8ECE8] bg-[#F8FAF7]"
+              }`}
+            >
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#657168]">
+                Forecast status
               </p>
-              <p className="mt-1 text-sm leading-6 text-[#59645C]">
-                {loading
-                  ? "Waiting for the forecast before assessing this activity."
-                  : error || !selectedClassification
-                    ? "No timing recommendation is available without forecast data."
-                    : "This activity is below the illustrative planning reference for its current time. No change is suggested by this rule."}
+              <p
+                className={`mt-2 text-base font-semibold ${
+                  selectedClassification.elevated
+                    ? "text-[#A6531D]"
+                    : "text-[#46544C]"
+                }`}
+              >
+                {selectedClassification.label}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-[#46544C]">
+                {selectedClassification.elevated
+                  ? `This activity is above the illustrative PM2.5 planning reference of ${ILLUSTRATIVE_PM25_THRESHOLD} µg/m³. Review the available alternatives before making a timetable change.`
+                  : `This activity is within the illustrative PM2.5 planning reference of ${ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ for its current time. No change is suggested by this rule.`}
               </p>
             </div>
           )}
@@ -529,31 +459,30 @@ export default function OutdoorSchedule() {
           )}
 
           <div className="mt-6">
-            {selectedIsElevated &&
-              selectedActivity.movable && (
-                <button
-                  type="button"
-                  disabled={
-                    loading ||
-                    Boolean(error) ||
-                    forecast.length === 0 ||
-                    (!acceptedTime && !bestWindow)
-                  }
-                  onClick={() => setReviewOpen(true)}
-                  className="rounded-md bg-[#278A5B] px-4 py-2.5 text-xs font-medium text-white transition hover:bg-[#20774E] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {acceptedTime
-                    ? "View accepted change →"
-                    : "Review proposed time →"}
-                </button>
-              )}
+            {selectedIsElevated && selectedActivity.movable && (
+              <button
+                type="button"
+                disabled={
+                  loading ||
+                  Boolean(error) ||
+                  forecast.length === 0 ||
+                  (!acceptedTime && !bestWindow)
+                }
+                onClick={() => setReviewOpen(true)}
+                className="rounded-md bg-[#087FC1] px-4 py-2.5 text-xs font-medium text-white transition hover:bg-[#06699F] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {acceptedTime
+                  ? "View accepted change →"
+                  : "Review proposed time →"}
+              </button>
+            )}
           </div>
         </aside>
       </section>
 
       {reviewOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#101812]/55 p-4 backdrop-blur-[2px]"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#172019]/55 p-4 backdrop-blur-[2px]"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               setReviewOpen(false);
@@ -568,7 +497,7 @@ export default function OutdoorSchedule() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#278A5B]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#087FC1]">
                   Scheduling review
                 </p>
                 <h2
@@ -579,7 +508,7 @@ export default function OutdoorSchedule() {
                     ? "Accepted schedule change"
                     : "Review proposed time"}
                 </h2>
-                <p className="mt-1 text-sm font-medium text-[#59645C]">
+                <p className="mt-1 text-sm font-medium text-[#46544C]">
                   {selectedActivity.name} ·{" "}
                   {selectedActivity.durationMinutes}-minute activity
                 </p>
@@ -589,7 +518,7 @@ export default function OutdoorSchedule() {
                 type="button"
                 aria-label="Close review"
                 onClick={() => setReviewOpen(false)}
-                className="rounded-md border border-[#DDE4DE] px-3 py-2 text-sm text-[#59645C] hover:bg-[#F6F8F6]"
+                className="rounded-md border border-[#DDE4DE] px-3 py-2 text-sm text-[#46544C] hover:bg-[#F6F8F6]"
               >
                 ✕
               </button>
@@ -597,13 +526,13 @@ export default function OutdoorSchedule() {
 
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-[#E8ECE8] p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#7A827C]">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#657168]">
                   Original scheduled time
                 </p>
                 <p className="mt-2 text-2xl font-bold text-[#172019]">
                   {originalTime.time}–{originalTime.end}
                 </p>
-                <p className="mt-1 text-sm font-medium text-[#59645C]">
+                <p className="mt-1 text-sm font-medium text-[#46544C]">
                   {calculateAveragePm25(
                     originalTime.time,
                     originalTime.end,
@@ -626,7 +555,7 @@ export default function OutdoorSchedule() {
                     : "border-[#E8ECE8] bg-[#F8FAF7]"
                 }`}
               >
-                <p className="text-xs font-bold uppercase tracking-wider text-[#59645C]">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#46544C]">
                   {acceptedTime ? "Accepted time" : "Proposed time"}
                 </p>
 
@@ -644,12 +573,12 @@ export default function OutdoorSchedule() {
                     <p className="mt-2 text-2xl font-bold text-[#172019]">
                       {bestWindow.start}–{bestWindow.end}
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-[#278A5B]">
+                    <p className="mt-1 text-sm font-semibold text-[#087FC1]">
                       {bestWindow.pm25} µg/m³ estimated average PM2.5
                     </p>
                   </>
                 ) : (
-                  <p className="mt-2 text-base font-semibold leading-6 text-[#59645C]">
+                  <p className="mt-2 text-base font-semibold leading-6 text-[#46544C]">
                     No feasible lower-exposure window found.
                   </p>
                 )}
@@ -661,7 +590,7 @@ export default function OutdoorSchedule() {
                 <h3 className="text-base font-bold text-[#172019]">
                   Lower-exposure alternatives rejected
                 </h3>
-                <p className="mt-1 text-sm leading-6 text-[#59645C]">
+                <p className="mt-1 text-sm leading-6 text-[#46544C]">
                   These windows have lower estimated PM2.5 but conflict with
                   the current demo timetable.
                 </p>
@@ -677,7 +606,7 @@ export default function OutdoorSchedule() {
                           <p className="text-base font-bold text-[#172019]">
                             {window.start}–{window.end}
                           </p>
-                          <p className="text-sm font-semibold text-[#59645C]">
+                          <p className="text-sm font-semibold text-[#46544C]">
                             {window.pm25} µg/m³
                           </p>
                         </div>
@@ -686,9 +615,9 @@ export default function OutdoorSchedule() {
                           {window.conflicts.map((conflict, index) => (
                             <p
                               key={`${conflict.activityId}-${conflict.type}-${index}`}
-                              className="text-sm font-medium leading-6 text-[#59645C]"
+                              className="text-sm font-medium leading-6 text-[#46544C]"
                             >
-                              <span className="mr-1 font-bold text-[#E47B38]">
+                              <span className="mr-1 font-bold text-[#D97732]">
                                 Conflict:
                               </span>
                               {conflict.reason}
@@ -699,14 +628,14 @@ export default function OutdoorSchedule() {
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-3 rounded-lg bg-[#F8FAF7] p-4 text-sm font-medium text-[#59645C]">
+                  <p className="mt-3 rounded-lg bg-[#F8FAF7] p-4 text-sm font-medium text-[#46544C]">
                     No lower-exposure conflicting windows were found.
                   </p>
                 )}
               </div>
             )}
 
-            <p className="mt-5 text-sm leading-6 text-[#7A827C]">
+            <p className="mt-5 text-sm leading-6 text-[#657168]">
               This forecast is modelled data, not a local station measurement.
               Changes apply only to this demo session and reset on refresh.
               The administrator remains responsible for the final decision.
@@ -718,15 +647,14 @@ export default function OutdoorSchedule() {
                   <button
                     type="button"
                     onClick={() => setReviewOpen(false)}
-                    className="rounded-md border border-[#DDE4DE] px-4 py-3 text-sm font-semibold text-[#59645C] hover:bg-[#F6F8F6]"
+                    className="rounded-md border border-[#DDE4DE] px-4 py-3 text-sm font-semibold text-[#46544C] hover:bg-[#F6F8F6]"
                   >
                     Keep current time
                   </button>
-
                   <button
                     type="button"
                     onClick={revertToOriginalTime}
-                    className="rounded-md bg-[#E47B38] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#C9672B]"
+                    className="rounded-md bg-[#D97732] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#A6531D]"
                   >
                     Revert to original time
                   </button>
@@ -736,16 +664,15 @@ export default function OutdoorSchedule() {
                   <button
                     type="button"
                     onClick={() => setReviewOpen(false)}
-                    className="rounded-md border border-[#DDE4DE] px-4 py-3 text-sm font-semibold text-[#59645C] hover:bg-[#F6F8F6]"
+                    className="rounded-md border border-[#DDE4DE] px-4 py-3 text-sm font-semibold text-[#46544C] hover:bg-[#F6F8F6]"
                   >
                     Keep original time
                   </button>
-
                   <button
                     type="button"
                     disabled={!bestWindow}
                     onClick={acceptProposedTime}
-                    className="rounded-md bg-[#278A5B] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#20774E] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-md bg-[#087FC1] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#06699F] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Accept proposed time
                   </button>

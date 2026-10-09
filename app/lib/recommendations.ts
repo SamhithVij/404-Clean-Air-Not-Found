@@ -102,6 +102,7 @@ export function classifyActivityAirQuality(
 /*
  * Evaluate a proposed time against the school timetable.
  */
+
 export function evaluateWindow(
   activity: Activity,
   start: string,
@@ -109,10 +110,16 @@ export function evaluateWindow(
   pm25: number,
   allActivities: Activity[]
 ): Recommendation {
+  // Use the latest timetable, but exclude the activity being evaluated.
+  // Its proposed time is checked separately against every other activity.
+  const currentTimetable = allActivities.filter(
+    (other) => other.id !== activity.id
+  );
+
   const conflicts = findConflicts(
     activity,
     { start, end },
-    allActivities
+    currentTimetable
   );
 
   return {
@@ -123,6 +130,7 @@ export function evaluateWindow(
     feasible: conflicts.length === 0,
   };
 }
+
 
 /*
  * Generate candidate windows:

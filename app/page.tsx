@@ -4,67 +4,153 @@
 import { useEffect, useState } from "react";
 import DayAtGlance from "./components/day-at-glance";
 import OutdoorSchedule from "./components/outdoor-schedule";
+import { activities } from "./data/demo-school";
 import { useAirQuality } from "./hooks/use-air-quality";
+import {
+  classifyActivityAirQuality,
+  findBestFeasibleWindow,
+  getAveragePm25,
+  ILLUSTRATIVE_PM25_THRESHOLD,
+} from "./lib/recommendations";
 
 function getIndiaDate() {
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
     day: "2-digit",
     month: "short",
-  })
-    .format(new Date())
-    .toUpperCase();
+    year: "numeric",
+  }).format(new Date());
+}
+
+function getMinutes(time: string) {
+  const clock = time.includes("T") ? time.slice(11, 16) : time.slice(0, 5);
+  const [hours, minutes] = clock.split(":").map(Number);
+
+  return hours * 60 + minutes;
+}
+
+function formatForecastDate(date: string | null) {
+  if (!date) return null;
+
+  const parsed = new Date(`${date}T12:00:00+05:30`);
+
+  if (Number.isNaN(parsed.getTime())) return date;
+
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(parsed);
 }
 
 export default function Home() {
-  const { forecast, loading, error } = useAirQuality();
-  const [currentHour, setCurrentHour] = useState<string | null>(null);
+  const {
+    forecast,
+    forecastDate,
+    loading,
+    error,
+    source,
+    location,
+  } = useAirQuality();
+
   const [today, setToday] = useState<string | null>(null);
 
   useEffect(() => {
-  const updateIndiaTime = () => {
-    const now = new Date();
+    const updateDate = () => setToday(getIndiaDate());
 
-    setCurrentHour(
-      new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Asia/Kolkata",
-        hour: "2-digit",
-        hourCycle: "h23",
-      }).format(now)
-    );
+    updateDate();
 
-    setToday(getIndiaDate());
-  };
+    const interval = window.setInterval(updateDate, 60_000);
 
-  updateIndiaTime();
+    return () => window.clearInterval(interval);
+  }, []);
 
-  const interval = window.setInterval(updateIndiaTime, 60_000);
+  // Keep the summary aligned with the school-day period used by the chart.
+  const schoolDayForecast = forecast.filter((point) => {
+    const minutes = getMinutes(point.time);
 
-  return () => window.clearInterval(interval);
-}, []);
-  const currentForecast = forecast.find((point) => {
-    const time = point.time;
-
-    if (!time || currentHour === null) return false;
-
-    const forecastHour = time.includes("T")
-      ? time.slice(11, 13)
-      : time.slice(0, 2);
-
-    return forecastHour === currentHour;
+    return minutes >= 8 * 60 && minutes <= 15 * 60 + 45;
   });
 
-  const currentPm25 =
-    !loading && !error && currentForecast
-      ? Math.round(currentForecast.pm25)
+  const schoolDayValues = schoolDayForecast
+    .map((point) => point.pm25)
+    .filter((value) => Number.isFinite(value));
+
+  const schoolDayAverage =
+    schoolDayValues.length > 0
+      ? Math.round(
+          (schoolDayValues.reduce((sum, value) => sum + value, 0) /
+            schoolDayValues.length) *
+            10
+        ) / 10
       : null;
 
+  const schoolDayMin =
+    schoolDayValues.length > 0 ? Math.round(Math.min(...schoolDayValues)) : null;
+
+  const schoolDayMax =
+    schoolDayValues.length > 0 ? Math.round(Math.max(...schoolDayValues)) : null;
+
+  const peakPoint =
+    schoolDayForecast.length > 0
+      ? schoolDayForecast.reduce((peak, point) =>
+          point.pm25 > peak.pm25 ? point : peak
+        )
+      : null;
+
+  const activitiesToDisplay = activities.filter(
+    (activity) => activity.id !== "pe-8"
+  );
+
+  const elevatedMovableActivities =
+    !loading && !error && forecast.length > 0
+      ? activitiesToDisplay.filter((activity) => {
+          const classification = classifyActivityAirQuality(
+            activity,
+            forecast
+          );
+
+          return activity.movable && classification.elevated === true;
+        })
+      : [];
+
+  const activitiesWithFeasibleOptions =
+    !loading && !error && forecast.length > 0
+      ? elevatedMovableActivities.filter((activity) => {
+          const currentPm25 = getAveragePm25(
+            activity.time,
+            activity.end,
+            forecast
+          );
+
+          if (currentPm25 === null) return false;
+
+          return Boolean(
+            findBestFeasibleWindow(
+              activity,
+              forecast,
+              activities,
+              currentPm25
+            )
+          );
+        })
+      : [];
+
+  const forecastAvailable =
+    !loading && !error && schoolDayAverage !== null;
+
+  const elevatedSchoolDay =
+    forecastAvailable &&
+    schoolDayAverage >= ILLUSTRATIVE_PM25_THRESHOLD;
+
+  const forecastDateLabel = formatForecastDate(forecastDate);
+
   return (
-    <main className="min-h-screen bg-[#F8FAF7] text-[#172019]">
-      <header className="border-b border-[#DDE4DE]">
-        <div className="mx-auto flex h-[76px] max-w-[1200px] items-center justify-between px-6">
+    <main className="min-h-screen bg-[#F5F8F6] text-[#172019]">
+      <header className="border-b border-[#DDE4DE] bg-white">
+        <div className="mx-auto flex min-h-[76px] max-w-[1200px] items-center justify-between gap-4 px-6">
           <div className="flex items-center gap-3">
-            {/* Airwise logo */}
             <svg
               width="38"
               height="38"
@@ -75,21 +161,21 @@ export default function Home() {
             >
               <path
                 d="M9 25.5L16 11L23 25.5"
-                stroke="#20A878"
+                stroke="#F07828"
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
               <path
                 d="M15 25.5H29C33 25.5 35 22.8 35 19.5C35 16.2 32.4 13.5 29 13.5C27.9 13.5 26.9 13.8 26 14.3"
-                stroke="#1597D3"
+                stroke="#087FC1"
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
               <path
                 d="M9 25.5C5.7 25.5 4 27.5 4 30C4 32.5 6 34 9 34H29C32 34 34 32 34 29"
-                stroke="#1597D3"
+                stroke="#087FC1"
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -100,79 +186,199 @@ export default function Home() {
               <div className="text-xl font-semibold tracking-tight">
                 Airwise
               </div>
-              <div className="text-[11px] tracking-[0.12em] text-[#59645C]">
+              <div className="text-[10px] tracking-[0.12em] text-[#657168]">
                 SCHOOL AIR QUALITY INTELLIGENCE
               </div>
             </div>
           </div>
 
           <div className="text-right text-xs">
-            <div className="font-medium">
+            <div className="font-semibold">
               TODAY{today ? ` · ${today}` : ""}
             </div>
-            <div className="text-[#59645C]">GREENFIELD SCHOOL</div>
+            <div className="mt-1 text-[#657168]">GREENFIELD SCHOOL</div>
           </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-[1200px] px-6">
-        <section className="flex items-center justify-between gap-12 py-16">
-          <div className="max-w-[760px]">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#2F8F5B]">
-              AIR TODAY
-            </p>
+        <section className="relative mt-8 overflow-hidden rounded-3xl border border-[#E0E9E4] bg-gradient-to-br from-[#E8F5FC] via-white to-[#FFF1E6] px-7 py-9 sm:px-10 sm:py-12 lg:mt-10 lg:px-12 lg:py-14">
+          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(310px,0.75fr)]">
+            <div>
+              <div
+                className={`mb-5 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                  loading || error || !forecastAvailable
+                    ? "bg-white/80 text-[#59645C]"
+                    : elevatedSchoolDay
+                      ? "bg-[#FFF0E5] text-[#A6531D]"
+                      : "bg-[#EAF5ED] text-[#216E49]"
+                }`}
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    loading || error || !forecastAvailable
+                      ? "bg-[#7A837C]"
+                      : elevatedSchoolDay
+                        ? "bg-[#F07828]"
+                        : "bg-[#278A5B]"
+                  }`}
+                />
+                {loading
+                  ? "LOADING SCHOOL-DAY FORECAST"
+                  : error || !forecastAvailable
+                    ? "SCHOOL-DAY FORECAST UNAVAILABLE"
+                    : elevatedSchoolDay
+                      ? "ELEVATED FORECAST · REVIEW ACTIVITIES"
+                      : "SCHOOL-DAY FORECAST · BELOW DEMO REFERENCE"}
+              </div>
 
-            <h1 className="text-5xl font-semibold leading-[1.05] tracking-[-0.035em] text-[#172019]">
-              A clearer plan for
-              <br />
-              outdoor time.
-            </h1>
+              <h1 className="max-w-[650px] text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-[#172019] sm:text-5xl lg:text-[56px]">
+                Know what needs attention today.
+              </h1>
 
-            <p className="mt-6 max-w-[700px] text-lg leading-8 text-[#59645C]">
-              See which outdoor activities overlap with elevated air pollution
-              and identify lower-exposure windows to consider.
-            </p>
+              <p className="mt-5 max-w-[620px] text-base leading-7 text-[#46544C] sm:text-lg sm:leading-8">
+                See which outdoor activities overlap with elevated air
+                pollution and identify lower-exposure windows to consider
+                before adjusting the school timetable.
+              </p>
 
-            <p className="mt-4 text-xs text-[#7A837C]">
-              ↳ Planning support, not an automatic decision. You make the final
-              call.
-            </p>
-          </div>
+              {forecastAvailable && (
+                <div className="mt-6 flex flex-wrap gap-3 text-sm">
+                  <div className="rounded-xl border border-white/90 bg-white/75 px-4 py-3">
+                    <p className="text-xs text-[#657168]">
+                      Movable activities to review
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-[#A6531D]">
+                      {elevatedMovableActivities.length}
+                    </p>
+                  </div>
 
-          {/* Current hourly PM2.5 forecast */}
-          <div className="min-w-[190px] border-l border-[#DDE4DE] pl-10 text-right">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1597D3]">
-              FORECAST · PM2.5
-            </p>
+                  <div className="rounded-xl border border-white/90 bg-white/75 px-4 py-3">
+                    <p className="text-xs text-[#657168]">
+                      With a feasible alternative
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-[#216E49]">
+                      {activitiesWithFeasibleOptions.length}
+                    </p>
+                  </div>
+                </div>
+              )}
 
-            <div className="mt-3 text-5xl font-medium tracking-[-0.04em]">
-              {loading ? "…" : currentPm25 !== null ? currentPm25 : "—"}
-              <span className="ml-2 text-lg font-normal text-[#59645C]">
-                µg/m³
-              </span>
+              <a
+                href="#outdoor-schedule"
+                className="mt-7 inline-flex items-center justify-center gap-2 rounded-lg bg-[#087FC1] px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-[#066BA4] focus:outline-none focus:ring-2 focus:ring-[#087FC1] focus:ring-offset-2"
+              >
+                Review outdoor activities
+                <span aria-hidden="true">→</span>
+              </a>
+
+              <p className="mt-4 text-xs leading-5 text-[#657168]">
+                Planning support, not an automatic decision. School staff
+                remain responsible for the final timetable.
+              </p>
             </div>
 
-            <p className="mt-3 text-sm text-[#59645C]">
-              {error
-                ? "Forecast temporarily unavailable"
-                : loading
-                  ? "Loading forecast…"
-                  : currentPm25 !== null
-                    ? "Hourly PM2.5 forecast"
-                    : "No forecast available for this hour"}
-            </p>
+            <aside className="rounded-2xl border border-white/90 bg-white/90 p-6 shadow-sm backdrop-blur-sm sm:p-7">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#657168]">
+                    SCHOOL-DAY AVERAGE
+                  </p>
+                  <h2 className="mt-2 text-lg font-semibold text-[#172019]">
+                    PM2.5 forecast
+                  </h2>
+                </div>
 
-            <p className="mt-2 text-sm text-[#59645C]">
-              Open-Meteo · via AWS
-            </p>
+                <span className="rounded-md bg-[#E8F5FC] px-2.5 py-1 text-[10px] font-semibold text-[#087FC1]">
+                  MODELLED
+                </span>
+              </div>
+
+              <div className="mt-6 flex items-baseline gap-2">
+                <span className="text-5xl font-semibold tracking-[-0.05em] text-[#172019]">
+                  {loading
+                    ? "…"
+                    : forecastAvailable
+                      ? Math.round(schoolDayAverage)
+                      : "—"}
+                </span>
+                <span className="text-sm text-[#657168]">µg/m³</span>
+              </div>
+
+              <p
+                className={`mt-4 rounded-lg px-3 py-2.5 text-sm font-medium ${
+                  loading || error || !forecastAvailable
+                    ? "bg-[#F5F8F6] text-[#59645C]"
+                    : elevatedSchoolDay
+                      ? "bg-[#FFF1E6] text-[#A6531D]"
+                      : "bg-[#EAF5ED] text-[#216E49]"
+                }`}
+              >
+                {loading
+                  ? "Loading forecast data…"
+                  : error || !forecastAvailable
+                    ? "No usable school-day forecast is available."
+                    : elevatedSchoolDay
+                      ? `Average is at or above the illustrative ${ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ reference.`
+                      : `Average is below the illustrative ${ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ reference.`}
+              </p>
+
+              <div className="mt-5 space-y-3 border-t border-[#E8ECE8] pt-4">
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-[#657168]">School hours</span>
+                  <span className="font-medium text-[#172019]">
+                    08:00–15:45 IST
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-[#657168]">Forecast range</span>
+                  <span className="font-medium text-[#172019]">
+                    {forecastAvailable
+                      ? `${schoolDayMin}–${schoolDayMax} µg/m³`
+                      : "Unavailable"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-[#657168]">Highest forecast</span>
+                  <span className="font-medium text-[#172019]">
+                    {forecastAvailable && peakPoint
+                      ? `${Math.round(peakPoint.pm25)} µg/m³ · ${peakPoint.time.slice(0, 5)}`
+                      : "Unavailable"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-lg bg-[#F5F8F6] p-3">
+                <p className="text-xs leading-5 text-[#59645C]">
+                  {location ? `${location} · ` : ""}
+                  {source ?? "Open-Meteo forecast via AWS"}
+                </p>
+                {forecastDateLabel && (
+                  <p className="mt-1 text-xs text-[#657168]">
+                    Forecast date: {forecastDateLabel}
+                  </p>
+                )}
+                <p className="mt-2 text-xs leading-5 text-[#657168]">
+                  Forecast estimates, not local sensor readings. The
+                  illustrative reference is not a validated school safety
+                  standard.
+                </p>
+              </div>
+            </aside>
           </div>
         </section>
 
-        {/* Air quality timeline */}
-        <DayAtGlance />
+        <div className="my-8 h-px bg-gradient-to-r from-[#087FC1] via-[#4689B8] to-[#F07828]" />
 
-        {/* Outdoor schedule and selected activity */}
-        <OutdoorSchedule />
+        <div id="day-at-a-glance" className="scroll-mt-6">
+          <DayAtGlance />
+        </div>
+
+        <div id="outdoor-schedule" className="scroll-mt-6">
+          <OutdoorSchedule />
+        </div>
       </div>
     </main>
   );
