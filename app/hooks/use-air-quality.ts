@@ -13,14 +13,18 @@ type HourlyForecastPoint = {
   pm25: number | null;
 };
 
-type ForecastResponse = {
+type ApiReading = {
+  time: string;
+  pm2_5: number;
+  source?: string;
+  kind?: string;
+};
+
+type ApiResponse = {
   location: string;
-  source: string;
-  sourceUrl: string;
-  fetchedAt: string;
   timezone: string;
-  unit: string;
-  forecast: HourlyForecastPoint[];
+  count: number;
+  readings: ApiReading[];
 };
 
 type AirQualityState = {
@@ -32,6 +36,10 @@ type AirQualityState = {
   fetchedAt: string | null;
   location: string | null;
 };
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "https://p6t59y17xf.execute-api.ap-south-1.amazonaws.com";
 
 function getDelhiDate(): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -66,7 +74,6 @@ function interpolateForecast(
       continue;
     }
 
-    // Open-Meteo returns local timestamps for Asia/Kolkata.
     const start = new Date(
       `${current.time}:00+05:30`
     ).getTime();
@@ -146,32 +153,49 @@ export function useAirQuality(): AirQualityState {
 
     async function loadForecast() {
       try {
-        const response = await fetch("/api/forecast", {
+        const response = await fetch(API_URL, {
           signal: controller.signal,
           cache: "no-store",
         });
 
-        const data = await response.json();
-
         if (!response.ok) {
           throw new Error(
-            data.error ?? "Failed to load forecast."
+            `AWS API request failed (${response.status}).`
           );
         }
 
-        const payload = data as ForecastResponse;
+        const data = (await response.json()) as ApiResponse;
 
-        if (!Array.isArray(payload.forecast)) {
-          throw new Error("The forecast response is invalid.");
+        if (!Array.isArray(data.readings)) {
+          throw new Error(
+            "The AWS API response does not contain readings."
+          );
         }
 
-        // Keep the forecast for one school day only.
+        const hourly: HourlyForecastPoint[] = data.readings
+          .filter(
+            (reading) =>
+              typeof reading.time === "string" &&
+              typeof reading.pm2_5 === "number" &&
+              Number.isFinite(reading.pm2_5) &&
+              reading.kind !== "obs"
+          )
+          .map((reading) => ({
+            time: reading.time,
+            pm25: reading.pm2_5,
+          }))
+          .sort((a, b) => a.time.localeCompare(b.time));
+
+        if (hourly.length === 0) {
+          throw new Error(
+            "No valid PM2.5 forecast readings were returned by AWS."
+          );
+        }
+
         const today = getDelhiDate();
 
         const availableDates = [
-          ...new Set(
-            payload.forecast.map((point) => point.time.slice(0, 10))
-          ),
+          ...new Set(hourly.map((point) => point.time.slice(0, 10))),
         ].sort();
 
         const selectedDate = availableDates.includes(today)
@@ -182,9 +206,9 @@ export function useAirQuality(): AirQualityState {
           throw new Error("No forecast dates were returned.");
         }
 
-        const selectedDay = payload.forecast
-          .filter((point) => point.time.startsWith(selectedDate))
-          .sort((a, b) => a.time.localeCompare(b.time));
+        const selectedDay = hourly.filter((point) =>
+          point.time.startsWith(selectedDate)
+        );
 
         const interpolated = interpolateForecast(selectedDay);
 
@@ -201,9 +225,9 @@ export function useAirQuality(): AirQualityState {
           forecastDate: selectedDate,
           loading: false,
           error: null,
-          source: payload.source,
-          fetchedAt: payload.fetchedAt,
-          location: payload.location,
+          source: "Open-Meteo Air Quality API (via AWS)",
+          fetchedAt: null,
+          location: data.location,
         });
       } catch (error) {
         if (controller.signal.aborted) return;
