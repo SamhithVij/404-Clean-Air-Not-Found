@@ -9,6 +9,8 @@ import {
   generateCandidateWindows,
   getAveragePm25 as calculateAveragePm25,
   evaluateWindow,
+  classifyActivityAirQuality,
+  ILLUSTRATIVE_PM25_THRESHOLD,
 } from "../lib/recommendations";
 
 type Activity = (typeof initialActivities)[number];
@@ -58,27 +60,30 @@ export default function OutdoorSchedule() {
   const originalTime = originalSchedule[selectedActivity.id];
   const acceptedTime = acceptedTimes[selectedActivity.id];
 
+  function getClassification(activity: Activity) {
+    if (loading || error || forecast.length === 0) return null;
+
+    return classifyActivityAirQuality(activity, forecast);
+  }
+
+  function isElevated(activity: Activity): boolean {
+    return getClassification(activity)?.elevated === true;
+  }
+
   const activitiesToReview = activitiesToDisplay.filter(
-    (activity) => activity.status === "elevated"
+    (activity) => activity.movable && isElevated(activity)
   );
 
   function getActivityAverage(activity: Activity): number | null {
-    if (forecast.length === 0) return null;
+    if (forecast.length === 0 || loading || error) return null;
 
-    return calculateAveragePm25(
-      activity.time,
-      activity.end,
-      forecast
-    );
+    return calculateAveragePm25(activity.time, activity.end, forecast);
   }
 
   function getRecommendation(activity: Activity) {
     if (loading || error || forecast.length === 0) return null;
     if (acceptedTimes[activity.id]) return null;
-
-    if (!activity.movable || activity.status !== "elevated") {
-      return null;
-    }
+    if (!activity.movable || !isElevated(activity)) return null;
 
     const currentPm25 = getActivityAverage(activity);
 
@@ -93,10 +98,14 @@ export default function OutdoorSchedule() {
   }
 
   const bestWindow = getRecommendation(selectedActivity);
+  const selectedClassification = getClassification(selectedActivity);
+  const selectedIsElevated = isElevated(selectedActivity);
 
   const candidateWindows =
-    !loading && !error && forecast.length > 0 &&
-    selectedActivity.status === "elevated"
+    !loading &&
+    !error &&
+    forecast.length > 0 &&
+    selectedIsElevated
       ? generateCandidateWindows(selectedActivity, forecast)
       : [];
 
@@ -104,7 +113,7 @@ export default function OutdoorSchedule() {
     !loading &&
     !error &&
     forecast.length > 0 &&
-    selectedActivity.status === "elevated" &&
+    selectedIsElevated &&
     !acceptedTime
       ? candidateWindows
           .filter((window) => {
@@ -224,8 +233,13 @@ export default function OutdoorSchedule() {
               <h2 className="text-2xl font-medium tracking-tight text-[#172019]">
                 Six activities. One school day.
               </h2>
+
               <span className="shrink-0 text-xs text-[#E47B38]">
-                {activitiesToReview.length} to review
+                {loading
+                  ? "Checking forecast…"
+                  : error
+                    ? "Forecast unavailable"
+                    : `${activitiesToReview.length} to review`}
               </span>
             </div>
 
@@ -241,7 +255,7 @@ export default function OutdoorSchedule() {
               ) : (
                 <>
                   <span className="rounded-full bg-[#EEF7F0] px-2 py-1 font-semibold text-[#278A5B]">
-                    Live forecast
+                    Forecast API connected
                   </span>
                   <span>{location}</span>
                   {source && <span>· {source}</span>}
@@ -255,7 +269,7 @@ export default function OutdoorSchedule() {
 
           <div className="hidden grid-cols-[90px_1.8fr_1.2fr_1.1fr] gap-5 border-b border-[#E8ECE8] px-7 py-3 text-[9px] font-semibold uppercase tracking-wider text-[#7A827C] sm:grid">
             <span>Time</span>
-            <span>Activity / status</span>
+            <span>Activity / forecast status</span>
             <span>Forecast PM2.5</span>
             <span>Lower-exposure option</span>
           </div>
@@ -265,7 +279,9 @@ export default function OutdoorSchedule() {
               const isSelected = activity.id === selectedId;
               const recommendation = getRecommendation(activity);
               const currentPm25 = getActivityAverage(activity);
+              const classification = getClassification(activity);
               const accepted = acceptedTimes[activity.id];
+              const elevated = classification?.elevated === true;
 
               return (
                 <button
@@ -301,17 +317,21 @@ export default function OutdoorSchedule() {
                       className={`mt-2 text-[11px] font-medium ${
                         accepted
                           ? "text-[#278A5B]"
-                          : activity.status === "elevated"
-                            ? "text-[#E47B38]"
-                            : "text-[#278A5B]"
+                          : loading || error || !classification
+                            ? "text-[#7A827C]"
+                            : elevated
+                              ? "text-[#E47B38]"
+                              : "text-[#278A5B]"
                       }`}
                     >
                       •{" "}
                       {accepted
                         ? "Rescheduled this session"
-                        : activity.status === "elevated"
-                          ? "Review timing"
-                          : "Seeded demo status"}
+                        : loading
+                          ? "Loading forecast…"
+                          : error || !classification
+                            ? "Classification unavailable"
+                            : classification.label}
                     </p>
                   </div>
 
@@ -326,7 +346,7 @@ export default function OutdoorSchedule() {
                     <p className="mt-1 text-[11px] leading-5 text-[#7A827C]">
                       {currentPm25 === null
                         ? "No forecast values for this time"
-                        : currentPm25 >= 35
+                        : currentPm25 >= ILLUSTRATIVE_PM25_THRESHOLD
                           ? "Above illustrative reference"
                           : "Below illustrative reference"}
                     </p>
@@ -359,9 +379,13 @@ export default function OutdoorSchedule() {
                       <p className="text-sm font-medium text-[#E47B38]">
                         Forecast unavailable
                       </p>
-                    ) : activity.status === "elevated" ? (
+                    ) : elevated && activity.movable ? (
                       <p className="text-sm font-medium text-[#E47B38]">
                         No feasible window
+                      </p>
+                    ) : !activity.movable && elevated ? (
+                      <p className="text-sm font-medium text-[#7A827C]">
+                        Fixed activity
                       </p>
                     ) : (
                       <p className="text-sm font-medium text-[#278A5B]">
@@ -377,7 +401,9 @@ export default function OutdoorSchedule() {
           <div className="px-7 py-5 text-[10px] leading-5 text-[#7A827C]">
             Forecast values are modelled estimates from the selected API,
             not local station measurements. Proposed slots preserve activity
-            duration and check detected timetable conflicts.
+            duration and check detected timetable conflicts. The{" "}
+            {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ reference is illustrative and
+            is not a validated school safety standard.
           </div>
         </div>
 
@@ -397,12 +423,15 @@ export default function OutdoorSchedule() {
 
           <div className="mt-7 border-t border-[#E8ECE8] pt-6">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-[#E47B38]">
-              Demo activity classification
+              Forecast-based classification
             </p>
+
             <p className="mt-2 text-sm leading-6 text-[#59645C]">
-              {selectedActivity.status === "elevated"
-                ? "This activity is flagged by the seeded demo timetable. Its forecast average below is calculated from the live forecast; the classification itself has not yet been made dynamic."
-                : "This activity's seeded demo classification has not yet been recalculated from the live forecast."}
+              {loading
+                ? "Loading the forecast for this activity."
+                : error || !selectedClassification
+                  ? "The forecast classification is unavailable."
+                  : `${selectedClassification.label}: ${selectedClassification.averagePm25} µg/m³ average PM2.5. The ${ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ threshold is an illustrative planning reference, not a safety standard.`}
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-5">
@@ -420,13 +449,14 @@ export default function OutdoorSchedule() {
                   Illustrative reference
                 </p>
                 <p className="mt-1 text-xl font-medium text-[#172019]">
-                  35 <span className="text-xs font-normal">µg/m³</span>
+                  {ILLUSTRATIVE_PM25_THRESHOLD}{" "}
+                  <span className="text-xs font-normal">µg/m³</span>
                 </p>
               </div>
             </div>
           </div>
 
-          {selectedActivity.status === "elevated" ? (
+          {selectedIsElevated ? (
             <div className="mt-7 rounded-lg bg-[#EEF7F0] p-5">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-[#278A5B]">
                 {acceptedTime
@@ -480,8 +510,11 @@ export default function OutdoorSchedule() {
                 Current timing
               </p>
               <p className="mt-1 text-sm leading-6 text-[#59645C]">
-                No timing change is currently suggested by the demo
-                classification.
+                {loading
+                  ? "Waiting for the forecast before assessing this activity."
+                  : error || !selectedClassification
+                    ? "No timing recommendation is available without forecast data."
+                    : "This activity is below the illustrative planning reference for its current time. No change is suggested by this rule."}
               </p>
             </div>
           )}
@@ -496,7 +529,7 @@ export default function OutdoorSchedule() {
           )}
 
           <div className="mt-6">
-            {selectedActivity.status === "elevated" &&
+            {selectedIsElevated &&
               selectedActivity.movable && (
                 <button
                   type="button"

@@ -15,6 +15,10 @@ import {
 
 import { activities } from "../data/demo-school";
 import { useAirQuality } from "../hooks/use-air-quality";
+import {
+  classifyActivityAirQuality,
+  ILLUSTRATIVE_PM25_THRESHOLD,
+} from "../lib/recommendations";
 
 const chartActivities = activities.filter(
   (activity) => activity.id !== "pe-8"
@@ -88,7 +92,7 @@ export default function DayAtGlance() {
           {!loading && !error && source && (
             <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-[#59645C]">
               <span className="rounded-full bg-[#EEF7F0] px-2 py-1 font-semibold text-[#278A5B]">
-                Live API connected
+                Forecast API connected
               </span>
               <span>Source: {source}</span>
               {formattedFetchTime && (
@@ -113,7 +117,7 @@ export default function DayAtGlance() {
       {loading ? (
         <div className="flex h-[280px] items-center justify-center rounded-lg bg-[#F8FAF7]">
           <p className="text-sm text-[#68716a]">
-            Fetching Delhi&apos;s forecast…
+            Fetching the air-quality forecast…
           </p>
         </div>
       ) : error || chartData.length === 0 ? (
@@ -197,7 +201,7 @@ export default function DayAtGlance() {
               />
 
               <ReferenceLine
-                y={35}
+                y={ILLUSTRATIVE_PM25_THRESHOLD}
                 stroke="#e59b59"
                 strokeDasharray="5 5"
                 label={{
@@ -238,43 +242,81 @@ export default function DayAtGlance() {
       </div>
 
       <div className="mt-5 border-t border-[#e8ece9] pt-4">
-        <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-[#7a827c]">
-          Scheduled outdoor activities
-        </p>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7a827c]">
+            Scheduled outdoor activities
+          </p>
+          <span className="text-[10px] text-[#7a827c]">
+            Based on forecast · {`≥ ${ILLUSTRATIVE_PM25_THRESHOLD} µg/m³`}
+          </span>
+        </div>
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {chartActivities.map((activity) => (
-            <div
-              key={activity.id}
-              className="flex items-start gap-2 rounded-md bg-[#F8FAF7] px-3 py-2"
-            >
-              <span
-                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                  activity.status === "elevated"
-                    ? "bg-[#e97832]"
-                    : "bg-[#3c9660]"
-                }`}
-              />
+          {chartActivities.map((activity) => {
+            const classification =
+              loading || error
+                ? null
+                : classifyActivityAirQuality(activity, forecast);
 
-              <div>
-                <p className="text-xs font-medium text-[#172019]">
-                  {activity.name}
-                </p>
-                <p className="mt-0.5 text-[10px] text-[#7a827c]">
-                  {activity.time}–{activity.end}
-                </p>
+            const elevated = classification?.elevated === true;
+            const unavailable =
+              loading ||
+              Boolean(error) ||
+              classification?.averagePm25 == null;
+
+            return (
+              <div
+                key={activity.id}
+                className="flex items-start gap-2 rounded-md bg-[#F8FAF7] px-3 py-2"
+              >
+                <span
+                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                    unavailable
+                      ? "bg-[#9ca3af]"
+                      : elevated
+                        ? "bg-[#e97832]"
+                        : "bg-[#3c9660]"
+                  }`}
+                />
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-[#172019]">
+                    {activity.name}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-[#7a827c]">
+                    {activity.time}–{activity.end}
+                  </p>
+                  <p
+                    className={`mt-1 text-[10px] font-semibold ${
+                      unavailable
+                        ? "text-[#7a827c]"
+                        : elevated
+                          ? "text-[#c45e20]"
+                          : "text-[#278A5B]"
+                    }`}
+                  >
+                    {loading
+                      ? "Loading forecast…"
+                      : error
+                        ? "Forecast unavailable"
+                        : classification?.averagePm25 == null
+                          ? "No forecast for this window"
+                          : `${classification.label} · ${classification.averagePm25} µg/m³`}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       <div className="mt-4 border-t border-[#edf0ed] pt-3 text-[11px] leading-5 text-[#7a827c]">
         PM2.5 values are modelled forecasts, not live measurements from
-        a local monitoring station. The 35 µg/m³ line is an illustrative
+        a local monitoring station. Activity labels are calculated from
+        the average forecast during each scheduled window. The{" "}
+        {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ threshold is an illustrative
         planning reference, not a validated school safety standard.
-        Activity classifications remain demo labels and are not yet
-        dynamically derived from the forecast.
+        These classifications do not determine whether an activity is safe.
       </div>
     </section>
   );

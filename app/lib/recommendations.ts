@@ -1,6 +1,11 @@
+
 import { Activity } from "../data/demo-school";
-import { demoForecast } from "../data/demo-forecast";
 import { findConflicts } from "./scheduling-engine";
+
+export type ForecastPoint = {
+  time: string;
+  pm25: number;
+};
 
 export type AirWindow = {
   start: string;
@@ -16,36 +21,40 @@ export type Recommendation = {
   feasible: boolean;
 };
 
-function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
+export const ILLUSTRATIVE_PM25_THRESHOLD = 35;
 
-function minutesToTime(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-}
+export type ActivityAirQuality = {
+  averagePm25: number | null;
+  elevated: boolean | null;
+  label: "Elevated forecast" | "Below demo threshold" | "Forecast unavailable";
+};
 
 /*
-  Calculate average PM2.5 directly from forecast points
-  within an activity window.
-
-  Returns null if no forecast points cover the window.
-*/
+ * Calculate average PM2.5 over an activity window.
+ * Forecast times must be HH:mm values from one selected date.
+ *
+ * Returns null when the window has no forecast points.
+ */
 export function getAveragePm25(
   start: string,
   end: string,
-  forecast: { time: string; pm25: number }[] = demoForecast
+  forecast: ForecastPoint[]
 ): number | null {
   const startMinutes = timeToMinutes(start);
   const endMinutes = timeToMinutes(end);
 
+  if (endMinutes <= startMinutes) {
+    return null;
+  }
+
   const points = forecast.filter((point) => {
     const pointMinutes = timeToMinutes(point.time);
 
-    return pointMinutes >= startMinutes && pointMinutes < endMinutes;
+    return (
+      pointMinutes >= startMinutes &&
+      pointMinutes < endMinutes &&
+      Number.isFinite(point.pm25)
+    );
   });
 
   if (points.length === 0) {
@@ -59,8 +68,40 @@ export function getAveragePm25(
 }
 
 /*
-  Evaluate one proposed time against the school timetable.
-*/
+ * Derive an activity's forecast classification dynamically.
+ * This is a planning indicator, not a health or safety determination.
+ */
+export function classifyActivityAirQuality(
+  activity: Pick<Activity, "time" | "end">,
+  forecast: ForecastPoint[],
+  threshold = ILLUSTRATIVE_PM25_THRESHOLD
+): ActivityAirQuality {
+  const averagePm25 = getAveragePm25(
+    activity.time,
+    activity.end,
+    forecast
+  );
+
+  if (averagePm25 === null) {
+    return {
+      averagePm25: null,
+      elevated: null,
+      label: "Forecast unavailable",
+    };
+  }
+
+  const elevated = averagePm25 >= threshold;
+
+  return {
+    averagePm25,
+    elevated,
+    label: elevated ? "Elevated forecast" : "Below demo threshold",
+  };
+}
+
+/*
+ * Evaluate a proposed time against the school timetable.
+ */
 export function evaluateWindow(
   activity: Activity,
   start: string,
@@ -84,14 +125,14 @@ export function evaluateWindow(
 }
 
 /*
-  Generate candidate windows:
-  - preserve activity duration
-  - begin every 15 minutes
-  - remain inside school hours
-*/
+ * Generate candidate windows:
+ * - preserve activity duration
+ * - begin every 15 minutes
+ * - remain inside school hours
+ */
 export function generateCandidateWindows(
   activity: Activity,
-  forecast: { time: string; pm25: number }[] = demoForecast,
+  forecast: ForecastPoint[],
   schoolStart = "08:00",
   schoolEnd = "16:00"
 ): AirWindow[] {
@@ -108,7 +149,6 @@ export function generateCandidateWindows(
   ) {
     const start = minutesToTime(current);
     const end = minutesToTime(current + duration);
-
     const pm25 = getAveragePm25(start, end, forecast);
 
     if (pm25 === null) {
@@ -122,12 +162,12 @@ export function generateCandidateWindows(
 }
 
 /*
-  Find the lowest-exposure feasible window below
-  the activity's current average PM2.5.
-*/
+ * Find the lowest-exposure feasible window below the activity's
+ * current average forecast PM2.5.
+ */
 export function findBestFeasibleWindow(
   activity: Activity,
-  forecast: { time: string; pm25: number }[] = demoForecast,
+  forecast: ForecastPoint[],
   allActivities: Activity[],
   currentPm25: number,
   schoolStart = "08:00",
@@ -157,4 +197,16 @@ export function findBestFeasibleWindow(
     .sort((a, b) => a.pm25 - b.pm25);
 
   return feasible[0] ?? null;
+}
+
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function minutesToTime(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
