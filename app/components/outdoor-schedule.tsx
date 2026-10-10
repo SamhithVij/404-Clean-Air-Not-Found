@@ -1,6 +1,4 @@
-
 "use client";
-
 import { useState } from "react";
 import { activities as initialActivities } from "../data/demo-school";
 import { useAirQuality } from "../hooks/use-air-quality";
@@ -60,8 +58,24 @@ export default function OutdoorSchedule() {
   const originalTime = originalSchedule[selectedActivity.id];
   const acceptedTime = acceptedTimes[selectedActivity.id];
 
+  // Always evaluate proposals against the latest accepted timetable.
+  // acceptedTimes is the source of truth for accepted moves, even if the
+  // activity list and accepted-time state are ever updated independently.
+  const currentTimetable = activities.map((activity) => {
+    const accepted = acceptedTimes[activity.id];
+
+    return accepted
+      ? { ...activity, time: accepted.time, end: accepted.end }
+      : activity;
+  });
+
+  function formatPm25(value: number | null | undefined): string {
+    return value == null ? "Unavailable" : value.toFixed(1);
+  }
+
   function getClassification(activity: Activity) {
     if (loading || error || forecast.length === 0) return null;
+
     return classifyActivityAirQuality(activity, forecast);
   }
 
@@ -75,6 +89,7 @@ export default function OutdoorSchedule() {
 
   function getActivityAverage(activity: Activity): number | null {
     if (forecast.length === 0 || loading || error) return null;
+
     return calculateAveragePm25(activity.time, activity.end, forecast);
   }
 
@@ -84,12 +99,13 @@ export default function OutdoorSchedule() {
     if (!activity.movable || !isElevated(activity)) return null;
 
     const currentPm25 = getActivityAverage(activity);
+
     if (currentPm25 === null) return null;
 
     return findBestFeasibleWindow(
       activity,
       forecast,
-      activities,
+      currentTimetable,
       currentPm25
     );
   }
@@ -115,6 +131,7 @@ export default function OutdoorSchedule() {
       ? candidateWindows
           .filter((window) => {
             const currentPm25 = getActivityAverage(selectedActivity);
+
             return currentPm25 !== null && window.pm25 < currentPm25;
           })
           .map((window) =>
@@ -123,7 +140,7 @@ export default function OutdoorSchedule() {
               window.start,
               window.end,
               window.pm25,
-              activities
+              currentTimetable
             )
           )
           .filter((window) => !window.feasible)
@@ -200,7 +217,10 @@ export default function OutdoorSchedule() {
 
   function currentSelectedAverage() {
     const average = getActivityAverage(selectedActivity);
-    return average === null ? "Unavailable" : `${average} µg/m³`;
+
+    return average === null
+      ? "Unavailable"
+      : `${formatPm25(average)} µg/m³`;
   }
 
   const formattedFetchTime = fetchedAt
@@ -216,7 +236,7 @@ export default function OutdoorSchedule() {
   return (
     <>
       <section className="mt-10 grid grid-cols-1 gap-6 pb-16 lg:grid-cols-[minmax(0,1.8fr)_minmax(340px,0.9fr)]">
-        <div className="overflow-hidden rounded-xl border border-[#DDE4DE] bg-white">
+        <div className="overflow-hidden rounded-2xl border border-[#DDE4DE] bg-white shadow-sm">
           <div className="border-b border-[#E8ECE8] px-7 py-6">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#46544C]">
               Your outdoor schedule
@@ -227,7 +247,7 @@ export default function OutdoorSchedule() {
                 Six activities. One school day.
               </h2>
 
-              <span className="shrink-0 text-xs text-[#D97732]">
+              <span className="shrink-0 text-xs text-[#A6531D]">
                 {loading
                   ? "Checking forecast…"
                   : error
@@ -242,16 +262,19 @@ export default function OutdoorSchedule() {
                   Loading forecast…
                 </span>
               ) : error ? (
-                <span className="rounded-full bg-[#FFF0E8] px-2 py-1 text-[#A6531D]">
+                <span className="rounded-full bg-[#FFF1E6] px-2 py-1 text-[#A6531D]">
                   Live forecast unavailable
                 </span>
               ) : (
                 <>
-                  <span className="rounded-full bg-[#EEF7F0] px-2 py-1 font-semibold text-[#278A5B]">
+                  <span className="rounded-full bg-[#EAF5ED] px-2 py-1 font-semibold text-[#216E49]">
                     Forecast API connected
                   </span>
+
                   <span>{location}</span>
+
                   {source && <span>· {source}</span>}
+
                   {formattedFetchTime && (
                     <span>· Fetched {formattedFetchTime} IST</span>
                   )}
@@ -263,7 +286,7 @@ export default function OutdoorSchedule() {
           <div className="hidden grid-cols-[90px_1.8fr_1.2fr_1.1fr] gap-5 border-b border-[#E8ECE8] px-7 py-3 text-[9px] font-semibold uppercase tracking-wider text-[#657168] sm:grid">
             <span>Time</span>
             <span>Activity / forecast status</span>
-            <span>Forecast PM2.5</span>
+            <span>Estimated activity average</span>
             <span>Lower-exposure option</span>
           </div>
 
@@ -286,14 +309,15 @@ export default function OutdoorSchedule() {
                   }}
                   className={`grid w-full grid-cols-1 gap-3 border-b border-[#E8ECE8] px-7 py-5 text-left last:border-b-0 sm:grid-cols-[90px_1.8fr_1.2fr_1.1fr] sm:gap-5 ${
                     isSelected
-                      ? "bg-[#FFF7F0]"
-                      : "bg-white hover:bg-[#FAFCFA]"
+                      ? "bg-[#FFF4EB] shadow-[inset_3px_0_0_#F07828]"
+                      : "bg-white hover:bg-[#F8FAF7]"
                   }`}
                 >
                   <div>
                     <p className="text-sm font-medium text-[#172019]">
                       {activity.time}
                     </p>
+
                     <p className="mt-0.5 text-[10px] text-[#657168]">
                       → {activity.end}
                     </p>
@@ -303,17 +327,22 @@ export default function OutdoorSchedule() {
                     <p className="text-sm font-medium text-[#172019]">
                       {activity.name}
                     </p>
+
                     <p className="mt-1 text-[11px] text-[#657168]">
                       {activity.detail}
                     </p>
 
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {accepted ? (
-                        <span className="rounded-full bg-[#EEF7F0] px-2 py-1 text-[10px] font-semibold text-[#278A5B]">
+                        <span className="rounded-full bg-[#EEF7F0] px-2 py-1 text-[10px] font-semibold text-[#216E49]">
                           Rescheduled
                         </span>
+                      ) : !activity.movable ? (
+                        <span className="rounded-full bg-[#F3F7F3] px-2 py-1 text-[10px] font-semibold text-[#46544C]">
+                          Fixed · {elevated ? "above reference" : "below reference"}
+                        </span>
                       ) : elevated ? (
-                        <span className="rounded-full bg-[#FFF0E8] px-2 py-1 text-[10px] font-semibold text-[#A6531D]">
+                        <span className="rounded-full bg-[#FFF1E6] px-2 py-1 text-[10px] font-semibold text-[#A6531D]">
                           Review recommended
                         </span>
                       ) : classification ? (
@@ -325,12 +354,6 @@ export default function OutdoorSchedule() {
                           Awaiting forecast
                         </span>
                       )}
-
-                      {!activity.movable && (
-                        <span className="text-[10px] text-[#657168]">
-                          Fixed activity
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -338,19 +361,17 @@ export default function OutdoorSchedule() {
                     <p className="text-sm font-semibold text-[#172019]">
                       {currentPm25 === null
                         ? "Unavailable"
-                        : `${currentPm25} µg/m³`}
-                    </p>
-                    <p className="mt-1 text-[10px] text-[#657168]">
-                      Estimated activity average
+                        : `${formatPm25(currentPm25)} µg/m³`}
                     </p>
                   </div>
 
                   <div>
                     {accepted ? (
                       <>
-                        <p className="text-sm font-semibold text-[#278A5B]">
+                        <p className="text-sm font-semibold text-[#216E49]">
                           {accepted.time}–{accepted.end}
                         </p>
+
                         <p className="mt-1 text-[10px] text-[#657168]">
                           Accepted for this demo
                         </p>
@@ -360,8 +381,9 @@ export default function OutdoorSchedule() {
                         <p className="text-sm font-semibold text-[#087FC1]">
                           {recommendation.start}–{recommendation.end}
                         </p>
+
                         <p className="mt-1 text-[10px] text-[#657168]">
-                          {recommendation.pm25} µg/m³ estimated average
+                          {formatPm25(recommendation.pm25)} µg/m³ estimated average
                         </p>
                       </>
                     ) : (
@@ -384,7 +406,7 @@ export default function OutdoorSchedule() {
           </div>
         </div>
 
-        <aside className="rounded-xl border border-[#DDE4DE] bg-white p-6">
+        <aside className="rounded-2xl border border-[#DDE4DE] bg-white p-6 shadow-sm">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#46544C]">
             Activity details
           </p>
@@ -401,9 +423,11 @@ export default function OutdoorSchedule() {
             <p className="text-xs font-semibold uppercase tracking-wider text-[#657168]">
               Current scheduled time
             </p>
+
             <p className="mt-2 text-2xl font-semibold text-[#172019]">
               {selectedActivity.time}–{selectedActivity.end}
             </p>
+
             <p className="mt-1 text-xs text-[#657168]">
               {selectedActivity.durationMinutes}-minute activity
             </p>
@@ -413,9 +437,11 @@ export default function OutdoorSchedule() {
             <p className="text-xs font-semibold uppercase tracking-wider text-[#657168]">
               Estimated average PM2.5
             </p>
+
             <p className="mt-2 text-2xl font-semibold text-[#172019]">
               {currentSelectedAverage()}
             </p>
+
             <p className="mt-1 text-xs leading-5 text-[#657168]">
               Forecast-based estimate for the activity&apos;s scheduled time.
             </p>
@@ -425,13 +451,14 @@ export default function OutdoorSchedule() {
             <div
               className={`mt-4 rounded-lg border p-4 ${
                 selectedClassification.elevated
-                  ? "border-[#F1D0BD] bg-[#FFF7F0]"
+                  ? "border-[#F1D0BD] bg-[#FFF4EB]"
                   : "border-[#E8ECE8] bg-[#F8FAF7]"
               }`}
             >
               <p className="text-xs font-semibold uppercase tracking-wider text-[#657168]">
                 Forecast status
               </p>
+
               <p
                 className={`mt-2 text-base font-semibold ${
                   selectedClassification.elevated
@@ -441,10 +468,11 @@ export default function OutdoorSchedule() {
               >
                 {selectedClassification.label}
               </p>
+
               <p className="mt-1 text-sm leading-6 text-[#46544C]">
                 {selectedClassification.elevated
-                  ? `This activity is above the illustrative PM2.5 planning reference of ${ILLUSTRATIVE_PM25_THRESHOLD} µg/m³. Review the available alternatives before making a timetable change.`
-                  : `This activity is within the illustrative PM2.5 planning reference of ${ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ for its current time. No change is suggested by this rule.`}
+                  ? `This activity is above the illustrative PM2.5 planning reference of ${ILLUSTRATIVE_PM25_THRESHOLD.toFixed(1)} µg/m³. Review the available alternatives before making a timetable change.`
+                  : `This activity is within the illustrative PM2.5 planning reference of ${ILLUSTRATIVE_PM25_THRESHOLD.toFixed(1)} µg/m³ for its current time. No change is suggested by this rule.`}
               </p>
             </div>
           )}
@@ -452,7 +480,7 @@ export default function OutdoorSchedule() {
           {acceptedMessage && (
             <p
               role="status"
-              className="mt-4 rounded-md bg-[#EEF7F0] p-3 text-xs leading-5 text-[#278A5B]"
+              className="mt-4 rounded-md bg-[#EAF5ED] p-3 text-xs leading-5 text-[#216E49]"
             >
               {acceptedMessage}
             </p>
@@ -469,7 +497,7 @@ export default function OutdoorSchedule() {
                   (!acceptedTime && !bestWindow)
                 }
                 onClick={() => setReviewOpen(true)}
-                className="rounded-md bg-[#087FC1] px-4 py-2.5 text-xs font-medium text-white transition hover:bg-[#06699F] disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg bg-[#087FC1] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#06699F] focus:outline-none focus:ring-2 focus:ring-[#087FC1] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {acceptedTime
                   ? "View accepted change →"
@@ -500,6 +528,7 @@ export default function OutdoorSchedule() {
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#087FC1]">
                   Scheduling review
                 </p>
+
                 <h2
                   id="review-modal-title"
                   className="mt-2 text-2xl font-bold tracking-tight text-[#172019]"
@@ -508,6 +537,7 @@ export default function OutdoorSchedule() {
                     ? "Accepted schedule change"
                     : "Review proposed time"}
                 </h2>
+
                 <p className="mt-1 text-sm font-medium text-[#46544C]">
                   {selectedActivity.name} ·{" "}
                   {selectedActivity.durationMinutes}-minute activity
@@ -518,7 +548,7 @@ export default function OutdoorSchedule() {
                 type="button"
                 aria-label="Close review"
                 onClick={() => setReviewOpen(false)}
-                className="rounded-md border border-[#DDE4DE] px-3 py-2 text-sm text-[#46544C] hover:bg-[#F6F8F6]"
+                className="rounded-lg border border-[#DDE4DE] px-3 py-2 text-sm text-[#46544C] transition hover:bg-[#F6F8F6] focus:outline-none focus:ring-2 focus:ring-[#087FC1] focus:ring-offset-2"
               >
                 ✕
               </button>
@@ -529,15 +559,19 @@ export default function OutdoorSchedule() {
                 <p className="text-xs font-bold uppercase tracking-wider text-[#657168]">
                   Original scheduled time
                 </p>
+
                 <p className="mt-2 text-2xl font-bold text-[#172019]">
                   {originalTime.time}–{originalTime.end}
                 </p>
+
                 <p className="mt-1 text-sm font-medium text-[#46544C]">
-                  {calculateAveragePm25(
-                    originalTime.time,
-                    originalTime.end,
-                    forecast
-                  ) ?? "Unavailable"}{" "}
+                  {formatPm25(
+                    calculateAveragePm25(
+                      originalTime.time,
+                      originalTime.end,
+                      forecast
+                    )
+                  )}{" "}
                   {calculateAveragePm25(
                     originalTime.time,
                     originalTime.end,
@@ -564,7 +598,8 @@ export default function OutdoorSchedule() {
                     <p className="mt-2 text-2xl font-bold text-[#172019]">
                       {acceptedTime.time}–{acceptedTime.end}
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-[#278A5B]">
+
+                    <p className="mt-1 text-sm font-semibold text-[#216E49]">
                       Accepted for this demo session.
                     </p>
                   </>
@@ -573,8 +608,9 @@ export default function OutdoorSchedule() {
                     <p className="mt-2 text-2xl font-bold text-[#172019]">
                       {bestWindow.start}–{bestWindow.end}
                     </p>
+
                     <p className="mt-1 text-sm font-semibold text-[#087FC1]">
-                      {bestWindow.pm25} µg/m³ estimated average PM2.5
+                      {formatPm25(bestWindow.pm25)} µg/m³ estimated average PM2.5
                     </p>
                   </>
                 ) : (
@@ -590,6 +626,7 @@ export default function OutdoorSchedule() {
                 <h3 className="text-base font-bold text-[#172019]">
                   Lower-exposure alternatives rejected
                 </h3>
+
                 <p className="mt-1 text-sm leading-6 text-[#46544C]">
                   These windows have lower estimated PM2.5 but conflict with
                   the current demo timetable.
@@ -606,8 +643,9 @@ export default function OutdoorSchedule() {
                           <p className="text-base font-bold text-[#172019]">
                             {window.start}–{window.end}
                           </p>
+
                           <p className="text-sm font-semibold text-[#46544C]">
-                            {window.pm25} µg/m³
+                            {formatPm25(window.pm25)} µg/m³
                           </p>
                         </div>
 
@@ -617,9 +655,10 @@ export default function OutdoorSchedule() {
                               key={`${conflict.activityId}-${conflict.type}-${index}`}
                               className="text-sm font-medium leading-6 text-[#46544C]"
                             >
-                              <span className="mr-1 font-bold text-[#D97732]">
+                              <span className="mr-1 font-bold text-[#A6531D]">
                                 Conflict:
                               </span>
+
                               {conflict.reason}
                             </p>
                           ))}
@@ -646,17 +685,18 @@ export default function OutdoorSchedule() {
                 <>
                   <button
                     type="button"
-                    onClick={() => setReviewOpen(false)}
-                    className="rounded-md border border-[#DDE4DE] px-4 py-3 text-sm font-semibold text-[#46544C] hover:bg-[#F6F8F6]"
-                  >
-                    Keep current time
-                  </button>
-                  <button
-                    type="button"
                     onClick={revertToOriginalTime}
-                    className="rounded-md bg-[#D97732] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#A6531D]"
+                    className="rounded-lg border border-[#E8C2A9] bg-white px-4 py-3 text-sm font-semibold text-[#A6531D] transition hover:bg-[#FFF8F3] focus:outline-none focus:ring-2 focus:ring-[#F07828] focus:ring-offset-2"
                   >
                     Revert to original time
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReviewOpen(false)}
+                    className="rounded-lg bg-[#087FC1] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#06699F] focus:outline-none focus:ring-2 focus:ring-[#087FC1] focus:ring-offset-2"
+                  >
+                    Done
                   </button>
                 </>
               ) : (
@@ -664,15 +704,16 @@ export default function OutdoorSchedule() {
                   <button
                     type="button"
                     onClick={() => setReviewOpen(false)}
-                    className="rounded-md border border-[#DDE4DE] px-4 py-3 text-sm font-semibold text-[#46544C] hover:bg-[#F6F8F6]"
+                    className="rounded-lg border border-[#DDE4DE] px-4 py-3 text-sm font-semibold text-[#46544C] transition hover:bg-[#F6F8F6] focus:outline-none focus:ring-2 focus:ring-[#087FC1] focus:ring-offset-2"
                   >
                     Keep original time
                   </button>
+
                   <button
                     type="button"
                     disabled={!bestWindow}
                     onClick={acceptProposedTime}
-                    className="rounded-md bg-[#087FC1] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#06699F] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-lg bg-[#087FC1] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#06699F] focus:outline-none focus:ring-2 focus:ring-[#087FC1] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Accept proposed time
                   </button>

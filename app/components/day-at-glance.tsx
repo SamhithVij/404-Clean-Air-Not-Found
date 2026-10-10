@@ -20,7 +20,9 @@ import {
   ILLUSTRATIVE_PM25_THRESHOLD,
 } from "../lib/recommendations";
 
-const chartActivities = activities.filter((activity) => activity.id !== "pe-8");
+const chartActivities = activities.filter(
+  (activity) => activity.id !== "pe-8"
+);
 
 const COLORS = {
   blue: "#087FC1",
@@ -56,16 +58,25 @@ export default function DayAtGlance() {
     })
     .sort((a, b) => a.time.localeCompare(b.time));
 
-  const highestPm25 = Math.max(0, ...chartData.map((point) => point.pm25));
-  const chartMax = Math.max(60, Math.ceil((highestPm25 * 1.15) / 10) * 10);
+  const highestPm25 = Math.max(
+    0,
+    ...chartData.map((point) => point.pm25)
+  );
+  const chartMax = Math.max(
+    60,
+    Math.ceil((highestPm25 * 1.15) / 10) * 10
+  );
 
   const formattedDate = forecastDate
-    ? new Date(`${forecastDate}T12:00:00+05:30`).toLocaleDateString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
+    ? new Date(`${forecastDate}T12:00:00+05:30`).toLocaleDateString(
+        "en-IN",
+        {
+          timeZone: "Asia/Kolkata",
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        }
+      )
     : null;
 
   const formattedFetchTime = fetchedAt
@@ -90,11 +101,11 @@ export default function DayAtGlance() {
             The day at a glance
           </p>
 
-          <h2 className="mt-1 text-xl font-medium text-[#172019]">
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-[#172019]">
             Understand the forecast. Plan the school day.
           </h2>
 
-          <p className="mt-1 text-xs text-[#46544C]">
+          <p className="mt-2 text-xs leading-5 text-[#46544C]">
             {loading
               ? "Loading air-quality forecast…"
               : error
@@ -103,11 +114,14 @@ export default function DayAtGlance() {
           </p>
 
           {!loading && !error && source && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#46544C]">
-              <span className="rounded-full border border-[#B9E0CA] bg-[#EAF7EF] px-2 py-1 font-semibold text-[#216E49]">
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-[#46544C]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#B9E0CA] bg-[#EAF7EF] px-2.5 py-1 font-semibold text-[#216E49]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#278A5B]" />
                 Forecast connected
               </span>
+
               <span>Source: {source}</span>
+
               {formattedFetchTime && (
                 <span>Fetched: {formattedFetchTime} IST</span>
               )}
@@ -120,29 +134,32 @@ export default function DayAtGlance() {
             <span className="h-[3px] w-5 rounded-full bg-[#087FC1]" />
             Forecast
           </span>
+
           <span className="flex items-center gap-2">
-            <span className="h-[3px] w-5 rounded-full bg-[#F07828]" />
-            35 µg/m³ reference
+            <span className="h-0 w-5 border-t-2 border-dashed border-[#F07828]" />
+            Illustrative reference
           </span>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex h-[280px] items-center justify-center rounded-lg bg-[#F5F8F6]">
+        <div className="flex h-[280px] items-center justify-center rounded-xl border border-[#E4EBE6] bg-[#F8FAF7]">
           <p className="text-sm text-[#46544C]">
             Fetching the air-quality forecast…
           </p>
         </div>
       ) : error || chartData.length === 0 ? (
-        <div className="flex h-[280px] flex-col items-center justify-center rounded-lg bg-[#F5F8F6] px-6 text-center">
+        <div className="flex h-[280px] flex-col items-center justify-center rounded-xl border border-[#E4EBE6] bg-[#F8FAF7] px-6 text-center">
           <p className="text-sm font-semibold text-[#172019]">
             Forecast unavailable
           </p>
+
           <p className="mt-2 max-w-md text-xs leading-5 text-[#46544C]">
             {error ??
               "No forecast values are available between 08:00 and 16:00."}
           </p>
-          <p className="mt-2 text-[11px] text-[#46544C]">
+
+          <p className="mt-2 text-[11px] text-[#657168]">
             No simulated values are substituted for missing forecast data.
           </p>
         </div>
@@ -153,11 +170,16 @@ export default function DayAtGlance() {
               <span className="h-3 w-3 rounded-sm bg-[#F07828]/20 ring-1 ring-[#F07828]/70" />
               Morning window · 09:30–12:15
             </span>
+
             <span className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-sm bg-[#4689B8]/20 ring-1 ring-[#4689B8]/70" />
               Afternoon window · 13:00–15:45
             </span>
-            <span>Dashed markers indicate activity start times.</span>
+
+            <span className="flex items-center gap-2">
+              <span className="h-0 w-4 border-t border-dashed border-[#84938A]" />
+              Scheduled activity start
+            </span>
           </div>
 
           <div className="h-[300px] w-full sm:h-[320px]">
@@ -187,7 +209,7 @@ export default function DayAtGlance() {
                 />
 
                 <CartesianGrid
-                  stroke="#E4EBE6"
+                  stroke={COLORS.grid}
                   strokeDasharray="3 4"
                   vertical={false}
                 />
@@ -200,7 +222,9 @@ export default function DayAtGlance() {
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(value: string) =>
-                    activityStartTimes.includes(value) ? `${value} •` : value
+                    activityStartTimes.includes(value)
+                      ? `${value} •`
+                      : value
                   }
                 />
 
@@ -228,20 +252,23 @@ export default function DayAtGlance() {
                     boxShadow: "0 4px 14px rgba(23,32,25,0.08)",
                     fontSize: "12px",
                   }}
-                  formatter={(value) => [`${value} µg/m³`, "Forecast PM2.5"]}
+                  formatter={(value) => [
+                    `${value} µg/m³`,
+                    "Forecast PM2.5",
+                  ]}
                   labelFormatter={(label) => `Time: ${label}`}
                 />
 
                 <ReferenceLine
                   y={ILLUSTRATIVE_PM25_THRESHOLD}
-                  stroke="#F07828"
+                  stroke={COLORS.orange}
                   strokeWidth={2}
                   strokeDasharray="6 4"
                   label={{
-                    value: "35 · illustrative reference",
+                    value: `${ILLUSTRATIVE_PM25_THRESHOLD} · illustrative reference`,
                     position: "insideTopRight",
                     fontSize: 10,
-                    fill: "#A6531D",
+                    fill: COLORS.orangeDark,
                   }}
                 />
 
@@ -259,12 +286,12 @@ export default function DayAtGlance() {
                   type="monotone"
                   dataKey="pm25"
                   name="Forecast PM2.5"
-                  stroke="#087FC1"
+                  stroke={COLORS.blue}
                   strokeWidth={3}
                   dot={false}
                   activeDot={{
                     r: 5,
-                    fill: "#087FC1",
+                    fill: COLORS.blue,
                     stroke: "#FFFFFF",
                     strokeWidth: 2,
                   }}
@@ -280,6 +307,7 @@ export default function DayAtGlance() {
               Forecast · {chartData[0].time}–
               {chartData[chartData.length - 1].time}
             </span>
+
             <span className="text-[#46544C]">
               Dashed vertical markers = scheduled activity start times
             </span>
@@ -292,6 +320,7 @@ export default function DayAtGlance() {
           <p className="text-xs font-semibold uppercase tracking-wider text-[#46544C]">
             Scheduled outdoor activities
           </p>
+
           <span className="text-[11px] text-[#46544C]">
             Activity-window average · reference ≥{" "}
             {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³
@@ -315,7 +344,7 @@ export default function DayAtGlance() {
             return (
               <div
                 key={activity.id}
-                className="flex items-start gap-2 rounded-lg border border-[#E2EAE4] bg-[#F8FAF7] px-3 py-3"
+                className="flex items-start gap-3 rounded-xl border border-[#E2EAE4] bg-[#F8FAF7] px-3.5 py-3 transition-colors hover:border-[#C8D8CE]"
               >
                 <span
                   className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
@@ -328,7 +357,7 @@ export default function DayAtGlance() {
                 />
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-[#172019]">
+                  <p className="text-xs font-semibold text-[#172019]">
                     {activity.name}
                   </p>
 
@@ -337,7 +366,7 @@ export default function DayAtGlance() {
                   </p>
 
                   <p
-                    className={`mt-1 text-[11px] font-semibold ${
+                    className={`mt-1.5 text-[11px] font-semibold ${
                       unavailable
                         ? "text-[#657168]"
                         : elevated
@@ -363,10 +392,11 @@ export default function DayAtGlance() {
       <div className="mt-4 border-t border-[#E4EBE6] pt-3 text-[11px] leading-5 text-[#46544C]">
         PM2.5 values are modelled forecasts, not live measurements from a
         local monitoring station. Activity labels use the average forecast
-        during each scheduled window. The {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³
-        threshold is an illustrative planning reference, not a validated
-        school safety standard. Neither the forecast nor these classifications
-        determine whether an activity is safe.
+        during each scheduled window. The{" "}
+        {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ threshold is an illustrative
+        planning reference, not a validated school safety standard. Neither
+        the forecast nor these classifications determine whether an activity
+        is safe.
       </div>
     </section>
   );
