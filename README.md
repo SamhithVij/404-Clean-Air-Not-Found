@@ -4,6 +4,12 @@
 
 Airwise helps school administrators and teachers make more informed decisions about outdoor activities when forecast PM2.5 levels are elevated. It brings an air-quality forecast, activity-level guidance, and schedule alternatives into one dashboard.
 
+## Live demo
+
+**Try Airwise:** https://main.divfs8o5h0w7c.amplifyapp.com
+
+The application is deployed publicly on **AWS Amplify**.
+
 > **Important:** Airwise is a planning aid, not a medical device or an official air-quality alert system. Its PM2.5 planning reference is illustrative, not a universal health or regulatory threshold. Forecasts are modelled estimates, not measurements from a sensor at the school. School staff should use local official guidance and their own safeguarding procedures when making decisions.
 
 ## The problem
@@ -29,7 +35,7 @@ The dashboard currently uses demo school timetable data. Recommendations support
 
 ### Current implementation status
 
-The checked-in web application fetches forecast data through the Next.js API route and performs recommendation and scheduling calculations in application code. The forecast location is currently configured to Delhi, India; it is **not yet configured from an individual school's location**.
+The deployed web application fetches forecast data through the Next.js API route and performs recommendation and scheduling calculations in application code. The forecast location is currently configured to Delhi, India; it is **not yet configured from an individual school's location**.
 
 AWS ingestion/storage components explored during the hackathon (including Lambda, DynamoDB, API Gateway, and EventBridge) should be treated as a separate prototype/architecture unless explicitly wired into the application. This repository's current `/api/forecast` route calls Open-Meteo directly; it does not claim that the web dashboard's forecast request passes through those AWS services.
 
@@ -66,8 +72,11 @@ The timetable recommendation and conflict-checking logic is implemented in `app/
 - **Charts:** Recharts
 - **Forecast data:** Open-Meteo Air Quality API
 - **Decision support:** TypeScript recommendation and schedule-conflict logic
+- **Hosting:** AWS Amplify
 
 ## Run locally
+
+These instructions are for developers who want to run or modify the project on their own machine. To use Airwise, open the [live demo](https://main.divfs8o5h0w7c.amplifyapp.com).
 
 ### Requirements
 
@@ -83,7 +92,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+The local development server will be available at [http://localhost:3000](http://localhost:3000).
 
 ### Useful commands
 
