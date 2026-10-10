@@ -1,51 +1,43 @@
 # Airwise — School Air Quality Intelligence
 
-**Built by Team 404: Clean Air Not Found** for the AWS / WeMakeDevs Environmental Hacks.
-
-Airwise helps school administrators and teachers make more informed decisions about outdoor activities when forecast PM2.5 levels are elevated. It brings an air-quality forecast, activity-level guidance, and schedule alternatives into one dashboard.
+**Team 404: Clean Air Not Found** · AWS / WeMakeDevs Environmental Hacks
 
 ## Live demo
 
-**Try Airwise:** https://main.divfs8o5h0w7c.amplifyapp.com
+### [Open Airwise](https://main.divfs8o5h0w7c.amplifyapp.com)
 
-The application is deployed publicly on **AWS Amplify**.
+Airwise is a school air-quality decision-support dashboard that helps staff review outdoor activities when forecast PM2.5 levels are elevated and consider feasible alternative times.
 
-> **Important:** Airwise is a planning aid, not a medical device or an official air-quality alert system. Its PM2.5 planning reference is illustrative, not a universal health or regulatory threshold. Forecasts are modelled estimates, not measurements from a sensor at the school. School staff should use local official guidance and their own safeguarding procedures when making decisions.
+> **Safety note:** Airwise is a planning aid, not an official alert system or a medical device. Its PM2.5 planning reference is illustrative—not a universal health or regulatory threshold. Forecasts are modelled estimates, not readings from a sensor at the school. Final decisions remain with school staff, following local official guidance.
 
 ## The problem
 
-Schools often plan PE lessons, assemblies, sports, and other outdoor activities without an easy way to relate the timing of those activities to changing air pollution. Moving an activity indoors or to another time can also create timetable conflicts.
+Schools schedule PE lessons, sports, assemblies, and other outdoor activities against a timetable that can be difficult to adjust at short notice. When air pollution is forecast to rise, staff need to understand which activities overlap with elevated forecast levels and whether an alternative time is feasible without creating timetable conflicts.
 
-## What Airwise does
+## Our solution
 
-- **Air-quality overview:** presents forecast PM2.5 levels and a time-series chart so staff can see how conditions may change through the day.
-- **Activity-level guidance:** evaluates forecast PM2.5 over an activity's scheduled time window and flags activities that warrant review against Airwise's illustrative planning reference.
-- **Alternative time suggestions:** searches for feasible replacement windows while preserving activity duration.
-- **Conflict-aware scheduling:** checks timetable constraints such as overlapping times and shared locations, teachers, or year groups when evaluating alternatives.
-- **Clear limitations:** distinguishes forecast information from sensor readings and explains that a threshold flag is a prompt for human review—not an automatic declaration that conditions are safe or unsafe.
+Airwise combines an air-quality forecast with activity-aware schedule recommendations:
 
-The dashboard currently uses demo school timetable data. Recommendations support human decision-making; Airwise does not autonomously cancel activities or close a school.
+- **Forecast overview:** displays hourly PM2.5 values and a chart to show how forecast conditions may change over the day.
+- **Activity-level review:** evaluates the forecast across each activity's scheduled window against an illustrative planning reference.
+- **Alternative time windows:** searches for feasible replacement slots while preserving activity duration.
+- **Conflict-aware scheduling:** considers overlaps and shared timetable resources such as locations, teachers, and year groups.
+- **Human-in-the-loop decisions:** provides guidance for staff to review; it does not automatically cancel activities or declare conditions safe.
 
-## How it works
-
-1. The Next.js application requests forecast data from its `/api/forecast` route.
-2. The route calls the [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) for hourly PM2.5 forecast data for Delhi, India, using the `Asia/Kolkata` timezone.
-3. The dashboard visualises the forecast and evaluates activity windows using the scheduling and recommendation logic in `app/lib/`.
-4. Feasible alternatives are presented for staff to review before making any timetable change.
-
-### Current implementation status
-
-The deployed web application fetches forecast data through the Next.js API route and performs recommendation and scheduling calculations in application code. The forecast location is currently configured to Delhi, India; it is **not yet configured from an individual school's location**.
-
-AWS ingestion/storage components explored during the hackathon (including Lambda, DynamoDB, API Gateway, and EventBridge) should be treated as a separate prototype/architecture unless explicitly wired into the application. This repository's current `/api/forecast` route calls Open-Meteo directly; it does not claim that the web dashboard's forecast request passes through those AWS services.
+The current dashboard uses demo school timetable data, and the forecast location is configured to Delhi, India—not a specific school's coordinates.
 
 ## Architecture
+
+Airwise has two related parts: the deployed web dashboard and the AWS forecast-ingestion/storage prototype. They are shown separately here to make the current integration status clear.
+
+### 1. Deployed dashboard
 
 ```text
 School staff
     |
     v
-Airwise dashboard (Next.js / React)
+Airwise dashboard
+Next.js / React, hosted on AWS Amplify
     |
     v
 Next.js API route: /api/forecast
@@ -57,90 +49,68 @@ Open-Meteo Air Quality API
 Hourly PM2.5 forecast
     |
     v
-Dashboard chart + activity recommendations
-    |
-    v
-Feasible alternative windows for human review
+Dashboard visualisation + schedule recommendations
 ```
 
-The timetable recommendation and conflict-checking logic is implemented in `app/lib/recommendations.ts` and `app/lib/scheduling-engine.ts`.
+In the checked-in application code, `/api/forecast` calls Open-Meteo directly. The scheduling and recommendation calculations run in the application.
+
+### 2. AWS forecast-ingestion and storage prototype
+
+```text
+Amazon EventBridge
+(scheduled trigger configured)
+          |
+          v
+AWS Lambda — ingestion
+          |
+          v
+Open-Meteo Air Quality API
+          |
+          v
+Amazon DynamoDB
+          ^
+          |
+AWS Lambda — API handler
+          ^
+          |
+Amazon API Gateway (HTTP API)
+```
+
+The ingestion Lambda retrieves forecast data and stores records in DynamoDB. An API Lambda reads the stored data, exposed through an API Gateway HTTP API. The API Gateway endpoint was tested successfully returning data from DynamoDB. EventBridge was configured for scheduled invocation, although the scheduled run itself was not conclusively verified during the hackathon.
+
+**Integration status:** The AWS ingestion/API path was built and tested as a prototype, but it is not the data path used by the repository's current `/api/forecast` route. The live dashboard should therefore not be described as routing every forecast request through API Gateway and DynamoDB.
+
+## How we used AWS
+
+- **AWS Amplify:** hosts the public Airwise web application.
+- **AWS Lambda:** runs the forecast ingestion logic and the API handler as serverless functions.
+- **Amazon DynamoDB:** stores forecast data produced by ingestion for retrieval by the API handler.
+- **Amazon API Gateway (HTTP API):** exposes the API Lambda so stored forecast data can be requested over HTTP.
+- **Amazon EventBridge:** configured to trigger scheduled ingestion, reducing the need for manual refreshes; scheduled execution was not fully verified in the hackathon window.
+
+This architecture demonstrates a serverless approach to ingestion and retrieval while keeping the dashboard's timetable recommendation logic in the Next.js application.
 
 ## Technology stack
 
-- **Framework:** Next.js (App Router), React, TypeScript
-- **Styling:** Tailwind CSS
+- **Frontend:** Next.js App Router, React, TypeScript, Tailwind CSS
 - **Charts:** Recharts
-- **Forecast data:** Open-Meteo Air Quality API
-- **Decision support:** TypeScript recommendation and schedule-conflict logic
-- **Hosting:** AWS Amplify
+- **Air-quality data:** Open-Meteo Air Quality API
+- **Scheduling logic:** TypeScript recommendation and conflict-checking functions
+- **AWS:** Amplify, Lambda, DynamoDB, API Gateway, EventBridge
 
-## Run locally
+## Data and limitations
 
-These instructions are for developers who want to run or modify the project on their own machine. To use Airwise, open the [live demo](https://main.divfs8o5h0w7c.amplifyapp.com).
-
-### Requirements
-
-- Node.js (LTS recommended)
-- npm
-
-### Setup
-
-```bash
-git clone https://github.com/SamhithVij/404-Clean-Air-Not-Found.git
-cd 404-Clean-Air-Not-Found
-npm install
-npm run dev
-```
-
-The local development server will be available at [http://localhost:3000](http://localhost:3000).
-
-### Useful commands
-
-```bash
-npm run dev     # Start the local development server
-npm run build   # Create a production build
-npm run start   # Serve the production build (after npm run build)
-npm run lint    # Run ESLint, if configured in package.json
-```
-
-No API key is currently required for the Open-Meteo forecast request in this repository.
-
-## Project structure
-
-```text
-app/
-  api/forecast/route.ts       # Server route for Open-Meteo forecast data
-  components/                 # Dashboard UI components
-  data/                       # Demo school timetable data
-  hooks/use-air-quality.ts    # Forecast data hook
-  lib/
-    recommendations.ts        # PM2.5 activity evaluation and alternatives
-    scheduling-engine.ts      # Schedule feasibility and conflict checks
-  page.tsx                    # Main dashboard
-```
-
-## Data and interpretation
-
-- **Variable:** PM2.5, in micrograms per cubic metre (`µg/m³`).
-- **Provider:** Open-Meteo Air Quality API.
-- **Forecast location:** Delhi, India (configured in `app/api/forecast/route.ts`).
+- **Pollutant:** PM2.5, measured in micrograms per cubic metre (`µg/m³`).
+- **Forecast provider:** [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api).
+- **Configured forecast location:** Delhi, India.
 - **Time zone:** `Asia/Kolkata`.
-- **Planning reference:** defined in the application as `ILLUSTRATIVE_PM25_THRESHOLD`; it is intended to demonstrate the workflow and should not be interpreted as a universal safety limit.
+- **Planning reference:** defined in the code as `ILLUSTRATIVE_PM25_THRESHOLD`; it is intended to demonstrate activity review and is not a universal safety limit.
 
-Forecast accuracy and conditions at a particular school can differ from the modelled forecast. A school-specific deployment should configure the school's coordinates, validate data freshness, and use applicable local public-health guidance.
-
-## Future improvements
-
-- Configure forecasts by school location and clearly show forecast issue/update times.
-- Connect a production data-ingestion pipeline and persistent storage where needed.
-- Add school-specific policies, timetable configuration, and stronger validation of scheduling constraints.
-- Improve accessibility, testing, monitoring, and deployment documentation.
+Forecasts may differ from actual conditions at a school. A school-specific deployment should use the school's coordinates, communicate data freshness, and follow applicable local public-health guidance. Airwise supports decisions; it does not replace official alerts or professional judgement.
 
 ## Team
 
 **404: Clean Air Not Found**  
-Project: **Airwise — School Air Quality Intelligence**
-
----
+**Project:** Airwise — School Air Quality Intelligence
 
 Made for Environmental Hacks.
