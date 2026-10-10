@@ -274,7 +274,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Replay the intro whenever requested */}
               <button
                 type="button"
                 onClick={() =>
@@ -318,9 +317,7 @@ export default function Home() {
                       className="mt-1 flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm text-[#172019] transition hover:bg-[#F5F8F6]"
                     >
                       <span>Profile</span>
-                      <span className="text-xs text-[#657168]">
-                        Admin
-                      </span>
+                      <span className="text-xs text-[#657168]">Admin</span>
                     </button>
 
                     <button
@@ -342,6 +339,102 @@ export default function Home() {
         </header>
 
         <div className="mx-auto max-w-[1200px] px-6">
+          {/* Air quality guide */}
+          <section
+            aria-labelledby="air-quality-guide-title"
+            className="mt-6 overflow-hidden rounded-2xl border border-[#DDE4DE] bg-white shadow-sm"
+          >
+            <div className="h-1 bg-gradient-to-r from-[#278A5B] via-[#087FC1] to-[#F07828]" />
+
+            <div className="p-5 sm:p-6">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E8F5FC] text-[#087FC1]">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="h-6 w-6"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 8h11a3 3 0 1 0-3-3" />
+                    <path d="M2 12h15a3 3 0 1 1-3 3" />
+                    <path d="M4 16h5" />
+                    <path d="M4 20h9" />
+                  </svg>
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h2
+                    id="air-quality-guide-title"
+                    className="text-base font-semibold tracking-tight text-[#172019]"
+                  >
+                    Understanding your air quality
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-[#657168]">
+                    PM2.5 means tiny particles in the air. Higher concentrations
+                    generally mean greater health concern.
+                  </p>
+                </div>
+
+                <span className="hidden rounded-full border border-[#DDE4DE] bg-[#F8FAF7] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#657168] sm:inline-flex">
+                  Quick guide
+                </span>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="flex items-start gap-3 rounded-xl border border-[#CDE8D7] bg-[#F0F8F2] p-3.5">
+                  <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#278A5B]" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#216E49]">
+                      Below {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#46544C]">
+                      Below Airwise&apos;s planning reference. This does not
+                      guarantee that conditions are safe.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-xl border border-[#F6D6BE] bg-[#FFF5ED] p-3.5">
+                  <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#F07828]" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#A6531D]">
+                      {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ or above
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#46544C]">
+                      Review outdoor activities and consider an indoor option
+                      or another time.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-xl border border-[#DDE4DE] bg-[#F8FAF7] p-3.5">
+                  <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#84938A]" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#46544C]">
+                      Forecast unavailable
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[#46544C]">
+                      No usable forecast is available. Check the data before
+                      making a timetable decision.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-4 border-t border-[#E8ECE8] pt-3 text-[11px] leading-5 text-[#657168]">
+                {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ is an illustrative Airwise
+                planning reference, not a universal safety limit or an official
+                all-purpose health guideline. Forecasts are modelled estimates,
+                not live local sensor readings. School staff remain responsible
+                for activity decisions.
+              </p>
+            </div>
+          </section>
+
           <section className="relative mt-8 overflow-hidden rounded-3xl border border-[#E0E9E4] bg-gradient-to-br from-[#E8F5FC] via-white to-[#FFF1E6] px-7 py-9 sm:px-10 sm:py-12 lg:mt-10 lg:px-12 lg:py-14">
             <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(310px,0.75fr)]">
               <div>

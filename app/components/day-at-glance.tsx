@@ -62,6 +62,7 @@ export default function DayAtGlance() {
     0,
     ...chartData.map((point) => point.pm25)
   );
+
   const chartMax = Math.max(
     60,
     Math.ceil((highestPm25 * 1.15) / 10) * 10
@@ -341,47 +342,83 @@ export default function DayAtGlance() {
               Boolean(error) ||
               classification?.averagePm25 == null;
 
+            const guidanceTitle = loading
+              ? "Checking forecast…"
+              : error || classification?.averagePm25 == null
+                ? "Forecast unavailable"
+                : elevated
+                  ? "Review this activity"
+                  : "No elevated-pollution flag detected";
+
+            const guidanceDescription = loading
+              ? "Air-quality information is being retrieved."
+              : error || classification?.averagePm25 == null
+                ? "Try again when forecast data is available."
+                : elevated
+                  ? "Consider moving indoors or choosing another time."
+                  : "The forecast is below the illustrative planning reference.";
+
             return (
               <div
                 key={activity.id}
-                className="flex items-start gap-3 rounded-xl border border-[#E2EAE4] bg-[#F8FAF7] px-3.5 py-3 transition-colors hover:border-[#C8D8CE]"
+                className="rounded-xl border border-[#E2EAE4] bg-[#F8FAF7] p-3.5 transition-colors hover:border-[#C8D8CE]"
               >
-                <span
-                  className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
-                    unavailable
-                      ? "bg-[#9CA3AF]"
-                      : elevated
-                        ? "bg-[#F07828]"
-                        : "bg-[#278A5B]"
-                  }`}
-                />
-
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-[#172019]">
-                    {activity.name}
-                  </p>
-
-                  <p className="mt-1 text-[11px] tabular-nums text-[#46544C]">
-                    {activity.time}–{activity.end}
-                  </p>
-
-                  <p
-                    className={`mt-1.5 text-[11px] font-semibold ${
+                <div className="flex items-start gap-3">
+                  <span
+                    className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
                       unavailable
-                        ? "text-[#657168]"
+                        ? "bg-[#9CA3AF]"
                         : elevated
-                          ? "text-[#A6531D]"
-                          : "text-[#216E49]"
+                          ? "bg-[#F07828]"
+                          : "bg-[#278A5B]"
                     }`}
-                  >
-                    {loading
-                      ? "Loading forecast…"
-                      : error
-                        ? "Forecast unavailable"
-                        : classification?.averagePm25 == null
-                          ? "No forecast for this window"
-                          : `${classification.label} · ${classification.averagePm25} µg/m³`}
-                  </p>
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-[#172019]">
+                      {activity.name}
+                    </p>
+
+                    <p className="mt-1 text-[11px] tabular-nums text-[#46544C]">
+                      {activity.time}–{activity.end}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-3 border-t border-[#E2EAE4] pt-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <div className="min-w-0">
+                    <p
+                      className={`text-xs font-semibold ${
+                        unavailable
+                          ? "text-[#657168]"
+                          : elevated
+                            ? "text-[#A6531D]"
+                            : "text-[#216E49]"
+                      }`}
+                    >
+                      {guidanceTitle}
+                    </p>
+
+                    <p className="mt-1 text-[11px] leading-4 text-[#46544C]">
+                      {guidanceDescription}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-[#DDE4DE] bg-white px-3 py-2 sm:min-w-[115px]">
+                    <p className="text-[10px] font-medium text-[#657168]">
+                      Forecast PM2.5
+                    </p>
+
+                    <p className="mt-0.5 text-sm font-semibold tabular-nums text-[#172019]">
+                     {classification?.averagePm25 == null
+  ? "—"
+  : `${classification.averagePm25.toFixed(1)} µg/m³`}
+                    </p>
+
+                    <p className="mt-1 text-[10px] leading-4 text-[#657168]">
+                      Reference: {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³
+                    </p>
+                  </div>
                 </div>
               </div>
             );
