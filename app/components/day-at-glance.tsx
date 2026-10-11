@@ -26,19 +26,18 @@ const chartActivities = activities.filter(
 
 const COLORS = {
   blue: "#087FC1",
-  blueDark: "#06699F",
-  afternoon: "#4689B8",
   orange: "#F07828",
   orangeDark: "#A6531D",
-  green: "#278A5B",
-  greenDark: "#216E49",
+  who: "#7C3AED",
+  india: "#64748B",
   text: "#46544C",
   muted: "#657168",
   heading: "#172019",
-  border: "#DDE4DE",
   grid: "#E4EBE6",
-  surface: "#F8FAF7",
 };
+
+const WHO_PM25_GUIDELINE = 15;
+const INDIA_NAAQS_PM25 = 60;
 
 export default function DayAtGlance() {
   const {
@@ -64,7 +63,7 @@ export default function DayAtGlance() {
   );
 
   const chartMax = Math.max(
-    60,
+    70,
     Math.ceil((highestPm25 * 1.15) / 10) * 10
   );
 
@@ -137,8 +136,18 @@ export default function DayAtGlance() {
           </span>
 
           <span className="flex items-center gap-2">
+            <span className="h-0 w-5 border-t-2 border-dashed border-[#7C3AED]" />
+            WHO · 15
+          </span>
+
+          <span className="flex items-center gap-2">
+            <span className="h-0 w-5 border-t-2 border-dashed border-[#64748B]" />
+            India NAAQS · 60
+          </span>
+
+          <span className="flex items-center gap-2">
             <span className="h-0 w-5 border-t-2 border-dashed border-[#F07828]" />
-            Illustrative reference
+            Airwise · 35
           </span>
         </div>
       </div>
@@ -261,12 +270,38 @@ export default function DayAtGlance() {
                 />
 
                 <ReferenceLine
+                  y={WHO_PM25_GUIDELINE}
+                  stroke={COLORS.who}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  label={{
+                    value: "WHO · 15",
+                    position: "insideTopLeft",
+                    fontSize: 10,
+                    fill: COLORS.who,
+                  }}
+                />
+
+                <ReferenceLine
+                  y={INDIA_NAAQS_PM25}
+                  stroke={COLORS.india}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  label={{
+                    value: "India NAAQS · 60",
+                    position: "insideTopRight",
+                    fontSize: 10,
+                    fill: COLORS.india,
+                  }}
+                />
+
+                <ReferenceLine
                   y={ILLUSTRATIVE_PM25_THRESHOLD}
                   stroke={COLORS.orange}
                   strokeWidth={2}
                   strokeDasharray="6 4"
                   label={{
-                    value: `${ILLUSTRATIVE_PM25_THRESHOLD} · illustrative reference`,
+                    value: `Airwise · ${ILLUSTRATIVE_PM25_THRESHOLD}`,
                     position: "insideTopRight",
                     fontSize: 10,
                     fill: COLORS.orangeDark,
@@ -323,7 +358,7 @@ export default function DayAtGlance() {
           </p>
 
           <span className="text-[11px] text-[#46544C]">
-            Activity-window average · reference ≥{" "}
+            Activity-window average · Airwise reference ≥{" "}
             {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³
           </span>
         </div>
@@ -410,13 +445,13 @@ export default function DayAtGlance() {
                     </p>
 
                     <p className="mt-0.5 text-sm font-semibold tabular-nums text-[#172019]">
-                     {classification?.averagePm25 == null
-  ? "—"
-  : `${classification.averagePm25.toFixed(1)} µg/m³`}
+                      {classification?.averagePm25 == null
+                        ? "—"
+                        : `${classification.averagePm25.toFixed(1)} µg/m³`}
                     </p>
 
                     <p className="mt-1 text-[10px] leading-4 text-[#657168]">
-                      Reference: {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³
+                      Airwise reference: {ILLUSTRATIVE_PM25_THRESHOLD}
                     </p>
                   </div>
                 </div>
@@ -428,11 +463,13 @@ export default function DayAtGlance() {
 
       <div className="mt-4 border-t border-[#E4EBE6] pt-3 text-[11px] leading-5 text-[#46544C]">
         PM2.5 values are modelled forecasts, not live measurements from a
-        local monitoring station. Activity labels use the average forecast
-        during each scheduled window. The{" "}
-        {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ threshold is an illustrative
-        planning reference, not a validated school safety standard. Neither
-        the forecast nor these classifications determine whether an activity
+        local monitoring station. WHO&apos;s guideline is 15 µg/m³ over
+        24 hours; India&apos;s NAAQS is 60 µg/m³ over 24 hours. These
+        official benchmarks are shown for context because their averaging
+        period differs from individual activity windows. Airwise uses{" "}
+        {ILLUSTRATIVE_PM25_THRESHOLD} µg/m³ as an illustrative scheduling
+        reference, not a validated school safety threshold. Neither the
+        forecast nor these classifications determine whether an activity
         is safe.
       </div>
     </section>
