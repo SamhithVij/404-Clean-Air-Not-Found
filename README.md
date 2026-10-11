@@ -1,6 +1,6 @@
 # Airwise — School Air Quality Intelligence
 
-**Team 404: Clean Air Not Found** · AWS / WeMakeDevs Environmental Hacks
+**Team 404: Clean Air Not Found** · AWS / WeMakeDevs Environmental Hacks 2026
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-AWS%20Amplify-087FC1)](https://main.divfs8o5h0w7c.amplifyapp.com)
 
@@ -8,11 +8,11 @@
 
 Airwise is a school air-quality decision-support dashboard that helps administrators and teachers review outdoor activities using air-quality forecasts, activity-aware scheduling, and AI-generated explanations.
 
-## The problem
+## The Problem
 
 When air pollution is forecast to rise, schools need to identify outdoor activities that may warrant review and find alternative time slots without creating timetable conflicts.
 
-## What Airwise does
+## What Airwise Does
 
 - **Air-quality forecasts:** Visualizes hourly PM2.5 forecasts to help staff understand changing conditions.
 - **Activity-level analysis:** Estimates average forecast PM2.5 over each activity's scheduled time window.
@@ -36,174 +36,77 @@ Airwise separates the deployed web application, AWS forecast-ingestion pipeline,
 
 Activity analysis and timetable-conflict checking run in the frontend/application layer, not in a separate scheduling microservice.
 
-## System workflows
+## System Workflows
 
-<details>
-<summary><strong>1. Forecast ingestion and API</strong></summary>
+### 1. Forecast Ingestion
 
-### Scheduled forecast ingestion
+```mermaid
+flowchart TD
+    A["Amazon EventBridge Scheduler"] -->|Scheduled trigger| B["AWS Lambda: clean-air-ingest"]
+    B -->|Fetch forecast| C["Open-Meteo Air Quality API"]
+    C -->|Process forecast records| D["Amazon DynamoDB"]
+```
 
-\`\`\`text
-Amazon EventBridge Scheduler
-             |
-             | Scheduled trigger
-             v
-AWS Lambda: clean-air-ingest
-             |
-             | Fetch forecast data
-             v
-Open-Meteo Air Quality API
-             |
-             | Process forecast records
-             v
-Amazon DynamoDB
-\`\`\`
+### 2. Forecast API Request and Response
 
-### Forecast API request and response
-
-**Request path:**
-
-\`\`\`text
-Frontend
-    |
-    | HTTP request
-    v
-Amazon API Gateway (HTTP API)
-    |
-    v
-AWS Lambda: API handler
-    |
-    | Query stored forecast data
-    v
-Amazon DynamoDB
-\`\`\`
-
-**Response path:**
-
-\`\`\`text
-Amazon DynamoDB
-    |
-    | Retrieved records
-    v
-AWS Lambda: API handler
-    |
-    | JSON response
-    v
-Amazon API Gateway (HTTP API)
-    |
-    v
-Frontend
-\`\`\`
+```mermaid
+flowchart TD
+    A["Frontend"] -->|HTTP request| B["Amazon API Gateway<br/>HTTP API"]
+    B --> C["AWS Lambda: API handler"]
+    C -->|Query stored forecast| D[("Amazon DynamoDB")]
+    D -->|Retrieved records| C
+    C -->|JSON response| B
+    B --> E["Frontend"]
+```
 
 The scheduled ingestion path and forecast API are distinct flows. The AWS backend should not be assumed to power every forecast calculation in the deployed dashboard unless that integration has been verified.
 
-</details>
+### 3. AI Explanation Workflow
 
-<details>
-<summary><strong>2. AI explanation workflow</strong></summary>
+```mermaid
+flowchart TD
+    A["Frontend dashboard"] -->|Explanation request| B["Next.js API route<br/>/api/bedrock-explanation"]
+    B -->|Validate input and build prompt| C["Amazon Bedrock Mantle API<br/>Google Gemma 3 12B IT<br/>Region: ap-south-1"]
+    C -->|Generated explanation| B
+    B -->|JSON response| D["Frontend explanation panel"]
+```
 
-\`\`\`text
-Frontend dashboard
-        |
-        | Explanation request
-        v
-Next.js API route
-/api/bedrock-explanation
-        |
-        | Validate input and build prompt
-        v
-Amazon Bedrock Mantle API
-Google Gemma 3 12B IT
-Region: ap-south-1
-        |
-        | Generated explanation
-        v
-Next.js API route
-        |
-        | JSON response
-        v
-Frontend explanation panel
-\`\`\`
+#### Server-Side Credential Retrieval
 
-### Server-side credential retrieval
-
-\`\`\`text
-Next.js API route
-        |
-        | Retrieve bearer token at runtime
-        v
-AWS Systems Manager
-Parameter Store (SecureString)
-
-Amplify SSR compute role
-AirwiseAmplifyComputeRole
-        |
-        | IAM permission to read
-        v
-Specific SSM parameter
-\`\`\`
+```mermaid
+flowchart TD
+    A["Next.js API route"] -->|Retrieve bearer token at runtime| B["AWS Systems Manager<br/>Parameter Store: SecureString"]
+    C["Amplify SSR compute role<br/>AirwiseAmplifyComputeRole"] -->|IAM permission to read| B
+```
 
 The Bedrock request is initiated on demand by the user. It does not pass through the forecast API Gateway endpoint or the EventBridge ingestion pipeline.
 
 The bearer token must remain server-side. It must never be exposed through frontend environment variables, bundled into browser code, or returned to the frontend.
 
-</details>
-
-<details>
-<summary><strong>3. Activity analysis and rescheduling</strong></summary>
+### 4. Activity Analysis and Rescheduling
 
 The scheduling engine runs in frontend/application logic.
 
-\`\`\`text
-Load forecast data
-        |
-        v
-Match forecast timestamps
-to scheduled activities
-        |
-        v
-Calculate average PM2.5
-over each activity window
-        |
-        v
-Compare against 35 µg/m³
-(illustrative planning reference)
-        |
-        v
-Flag activities for review
-        |
-        v
-Generate alternative windows
-(preserve activity duration)
-        |
-        v
-Check timetable conflicts
-(locations, teachers, year groups)
-        |
-        v
-   +------------------+
-   | Conflict found?  |
-   +------------------+
-       /          \\
-     Yes           No
-      |             |
-      v             v
-Reject candidate  Mark feasible
-                      |
-                      v
-              Present alternatives
-                      |
-                      v
-             Administrator decides
-\`\`\`
+```mermaid
+flowchart TD
+    A["Load forecast data"] --> B["Match forecast timestamps to scheduled activities"]
+    B --> C["Calculate average PM2.5 over each activity window"]
+    C --> D["Compare against 35 µg/m³<br/>Illustrative planning reference"]
+    D --> E["Flag activities for review"]
+    E --> F["Generate alternative windows<br/>Preserve activity duration"]
+    F --> G["Check timetable conflicts<br/>Locations, teachers, year groups"]
+    G --> H{"Conflict found?"}
+    H -->|Yes| I["Reject candidate"]
+    H -->|No| J["Mark feasible"]
+    J --> K["Present alternatives"]
+    K --> L["Administrator decides"]
+```
 
 Conflicting candidate windows are rejected; feasible candidates are presented to the administrator. Where implemented, the administrator can accept a proposed time or revert to the original schedule.
 
 A feasible timetable slot is not necessarily a safe air-quality slot. The system assists school staff but does not make autonomous safety decisions.
 
-</details>
-
-## Technology stack
+## Technology Stack
 
 | Component | Technology |
 |---|---|
@@ -217,7 +120,7 @@ A feasible timetable slot is not necessarily a safe air-quality slot. The system
 | AI explanations | Amazon Bedrock Mantle, Google Gemma 3 12B IT |
 | Credential storage | AWS Systems Manager Parameter Store |
 
-## Data and limitations
+## Data and Limitations
 
 - **Pollutant:** PM2.5, measured in micrograms per cubic metre (`µg/m³`).
 - **Forecast provider:** [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api).
@@ -233,5 +136,6 @@ Airwise does not independently certify that an activity is safe or replace offic
 
 ## Team
 
-**404: Clean Air Not Found**  
-Built for AWS / WeMakeDevs Environmental Hacks.
+**404: Clean Air Not Found**
+
+Built for AWS / WeMakeDevs Environmental Hacks 2026.
