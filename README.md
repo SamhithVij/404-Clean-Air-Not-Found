@@ -2,101 +2,220 @@
 
 **Team 404: Clean Air Not Found** · AWS / WeMakeDevs Environmental Hacks
 
-## Live demo
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-AWS%20Amplify-087FC1)](https://main.divfs8o5h0w7c.amplifyapp.com)
 
-### [Open Airwise](https://main.divfs8o5h0w7c.amplifyapp.com)
+**[Launch Airwise →](https://main.divfs8o5h0w7c.amplifyapp.com)**
 
-Airwise is a school air-quality decision-support dashboard that helps staff review outdoor activities when forecast PM2.5 levels are elevated and consider feasible alternative times.
-
-> **Safety note:** Airwise is a planning aid, not an official alert system or a medical device. Its PM2.5 planning reference is illustrative—not a universal health or regulatory threshold. Forecasts are modelled estimates, not readings from a sensor at the school. Final decisions remain with school staff, following local official guidance.
+Airwise is a school air-quality decision-support dashboard that helps administrators and teachers review outdoor activities using air-quality forecasts, activity-aware scheduling, and AI-generated explanations.
 
 ## The problem
 
-Schools schedule PE lessons, sports, assemblies, and other outdoor activities against a timetable that can be difficult to adjust at short notice. When air pollution is forecast to rise, staff need to understand which activities overlap with elevated forecast levels and whether an alternative time is feasible without creating timetable conflicts.
+When air pollution is forecast to rise, schools need to identify outdoor activities that may warrant review and find alternative time slots without creating timetable conflicts.
 
-## Our solution
+## What Airwise does
 
-Airwise combines an air-quality forecast with activity-aware schedule recommendations:
+- **Air-quality forecasts:** Visualizes hourly PM2.5 forecasts to help staff understand changing conditions.
+- **Activity-level analysis:** Estimates average forecast PM2.5 over each activity's scheduled time window.
+- **Smart rescheduling:** Suggests alternative time windows while preserving activity duration and checking timetable conflicts involving locations, teachers, and year groups.
+- **AI explanations:** Uses Google Gemma 3 12B IT through Amazon Bedrock Mantle to explain supplied activity and forecast details.
+- **Human-led decisions:** Helps staff evaluate options without autonomously cancelling activities or declaring conditions safe.
 
-- **Forecast overview:** displays hourly PM2.5 values and a chart to show how forecast conditions may change over the day.
-- **Activity-level review:** evaluates the forecast across each activity's scheduled window against an illustrative planning reference.
-- **Alternative time windows:** searches for feasible replacement slots while preserving activity duration.
-- **Conflict-aware scheduling:** considers overlaps and shared timetable resources such as locations, teachers, and year groups.
-- **Human-in-the-loop decisions:** provides guidance for staff to review; it does not automatically cancel activities or declare conditions safe.
-
-The current dashboard uses demo school timetable data, and the forecast location is configured to Delhi, India—not a specific school's coordinates.
+The dashboard uses demonstration school timetable data. The configured forecast location is Delhi, India, rather than a specific school's coordinates.
 
 ## Architecture
 
-Airwise has two related parts: the deployed web dashboard and the AWS forecast-ingestion/storage prototype. They are shown separately here to make the current integration status clear.
+![Airwise system architecture](docs/architecture.png)
 
-### 1. Deployed dashboard
+Airwise separates the deployed web application, AWS forecast-ingestion pipeline, forecast-data API, frontend scheduling logic, and on-demand AI explanation workflow.
 
-```text
-School staff
-    |
-    v
-Airwise dashboard
-Next.js / React, hosted on AWS Amplify
-    |
-    v
-Next.js API route: /api/forecast
-    |
-    v
+- **Web application:** Next.js 16, React, TypeScript, Tailwind CSS, and Recharts, deployed on AWS Amplify Hosting.
+- **Forecast ingestion:** Amazon EventBridge Scheduler triggers AWS Lambda (`clean-air-ingest`), which retrieves forecast data from Open-Meteo and stores processed records in DynamoDB.
+- **Forecast API:** Amazon API Gateway (HTTP API) routes requests to a Lambda API handler that retrieves stored forecast data.
+- **AI explanations:** The Next.js API route `/api/bedrock-explanation` calls Amazon Bedrock Mantle using Google Gemma 3 12B IT (`google.gemma-3-12b-it`) in `ap-south-1`.
+- **Credential security:** AWS Systems Manager Parameter Store stores the Bedrock bearer token as a `SecureString`. The server-side API route retrieves it using permissions granted to the Amplify SSR compute role.
+
+Activity analysis and timetable-conflict checking run in the frontend/application layer, not in a separate scheduling microservice.
+
+## System workflows
+
+<details>
+<summary><strong>1. Forecast ingestion and API</strong></summary>
+
+### Scheduled forecast ingestion
+
+\`\`\`text
+Amazon EventBridge Scheduler
+             |
+             | Scheduled trigger
+             v
+AWS Lambda: clean-air-ingest
+             |
+             | Fetch forecast data
+             v
 Open-Meteo Air Quality API
-    |
-    v
-Hourly PM2.5 forecast
-    |
-    v
-Dashboard visualisation + schedule recommendations
-```
-
-In the checked-in application code, `/api/forecast` calls Open-Meteo directly. The scheduling and recommendation calculations run in the application.
-
-### 2. AWS forecast-ingestion and storage prototype
-
-```text
-Amazon EventBridge
-(scheduled trigger configured)
-          |
-          v
-AWS Lambda — ingestion
-          |
-          v
-Open-Meteo Air Quality API
-          |
-          v
+             |
+             | Process forecast records
+             v
 Amazon DynamoDB
-          ^
-          |
-AWS Lambda — API handler
-          ^
-          |
+\`\`\`
+
+### Forecast API request and response
+
+**Request path:**
+
+\`\`\`text
+Frontend
+    |
+    | HTTP request
+    v
 Amazon API Gateway (HTTP API)
-```
+    |
+    v
+AWS Lambda: API handler
+    |
+    | Query stored forecast data
+    v
+Amazon DynamoDB
+\`\`\`
 
-The ingestion Lambda retrieves forecast data and stores records in DynamoDB. An API Lambda reads the stored data, exposed through an API Gateway HTTP API. The API Gateway endpoint was tested successfully returning data from DynamoDB. EventBridge was configured for scheduled invocation, although the scheduled run itself was not conclusively verified during the hackathon.
+**Response path:**
 
-**Integration status:** The AWS ingestion/API path was built and tested as a prototype, but it is not the data path used by the repository's current `/api/forecast` route. The live dashboard should therefore not be described as routing every forecast request through API Gateway and DynamoDB.
+\`\`\`text
+Amazon DynamoDB
+    |
+    | Retrieved records
+    v
+AWS Lambda: API handler
+    |
+    | JSON response
+    v
+Amazon API Gateway (HTTP API)
+    |
+    v
+Frontend
+\`\`\`
 
-## How we used AWS
+The scheduled ingestion path and forecast API are distinct flows. The AWS backend should not be assumed to power every forecast calculation in the deployed dashboard unless that integration has been verified.
 
-- **AWS Amplify:** hosts the public Airwise web application.
-- **AWS Lambda:** runs the forecast ingestion logic and the API handler as serverless functions.
-- **Amazon DynamoDB:** stores forecast data produced by ingestion for retrieval by the API handler.
-- **Amazon API Gateway (HTTP API):** exposes the API Lambda so stored forecast data can be requested over HTTP.
-- **Amazon EventBridge:** configured to trigger scheduled ingestion, reducing the need for manual refreshes; scheduled execution was not fully verified in the hackathon window.
+</details>
 
-This architecture demonstrates a serverless approach to ingestion and retrieval while keeping the dashboard's timetable recommendation logic in the Next.js application.
+<details>
+<summary><strong>2. AI explanation workflow</strong></summary>
+
+\`\`\`text
+Frontend dashboard
+        |
+        | Explanation request
+        v
+Next.js API route
+/api/bedrock-explanation
+        |
+        | Validate input and build prompt
+        v
+Amazon Bedrock Mantle API
+Google Gemma 3 12B IT
+Region: ap-south-1
+        |
+        | Generated explanation
+        v
+Next.js API route
+        |
+        | JSON response
+        v
+Frontend explanation panel
+\`\`\`
+
+### Server-side credential retrieval
+
+\`\`\`text
+Next.js API route
+        |
+        | Retrieve bearer token at runtime
+        v
+AWS Systems Manager
+Parameter Store (SecureString)
+
+Amplify SSR compute role
+AirwiseAmplifyComputeRole
+        |
+        | IAM permission to read
+        v
+Specific SSM parameter
+\`\`\`
+
+The Bedrock request is initiated on demand by the user. It does not pass through the forecast API Gateway endpoint or the EventBridge ingestion pipeline.
+
+The bearer token must remain server-side. It must never be exposed through frontend environment variables, bundled into browser code, or returned to the frontend.
+
+</details>
+
+<details>
+<summary><strong>3. Activity analysis and rescheduling</strong></summary>
+
+The scheduling engine runs in frontend/application logic.
+
+\`\`\`text
+Load forecast data
+        |
+        v
+Match forecast timestamps
+to scheduled activities
+        |
+        v
+Calculate average PM2.5
+over each activity window
+        |
+        v
+Compare against 35 µg/m³
+(illustrative planning reference)
+        |
+        v
+Flag activities for review
+        |
+        v
+Generate alternative windows
+(preserve activity duration)
+        |
+        v
+Check timetable conflicts
+(locations, teachers, year groups)
+        |
+        v
+   +------------------+
+   | Conflict found?  |
+   +------------------+
+       /          \\
+     Yes           No
+      |             |
+      v             v
+Reject candidate  Mark feasible
+                      |
+                      v
+              Present alternatives
+                      |
+                      v
+             Administrator decides
+\`\`\`
+
+Conflicting candidate windows are rejected; feasible candidates are presented to the administrator. Where implemented, the administrator can accept a proposed time or revert to the original schedule.
+
+A feasible timetable slot is not necessarily a safe air-quality slot. The system assists school staff but does not make autonomous safety decisions.
+
+</details>
 
 ## Technology stack
 
-- **Frontend:** Next.js App Router, React, TypeScript, Tailwind CSS
-- **Charts:** Recharts
-- **Air-quality data:** Open-Meteo Air Quality API
-- **Scheduling logic:** TypeScript recommendation and conflict-checking functions
-- **AWS:** Amplify, Lambda, DynamoDB, API Gateway, EventBridge
+| Component | Technology |
+|---|---|
+| Frontend | Next.js 16, React, TypeScript |
+| Styling and charts | Tailwind CSS, Recharts |
+| Hosting | AWS Amplify Hosting |
+| Forecast provider | Open-Meteo Air Quality API |
+| Forecast ingestion | Amazon EventBridge Scheduler, AWS Lambda |
+| Forecast storage | Amazon DynamoDB |
+| Forecast API | Amazon API Gateway (HTTP API), AWS Lambda |
+| AI explanations | Amazon Bedrock Mantle, Google Gemma 3 12B IT |
+| Credential storage | AWS Systems Manager Parameter Store |
 
 ## Data and limitations
 
@@ -104,13 +223,15 @@ This architecture demonstrates a serverless approach to ingestion and retrieval 
 - **Forecast provider:** [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api).
 - **Configured forecast location:** Delhi, India.
 - **Time zone:** `Asia/Kolkata`.
-- **Planning reference:** defined in the code as `ILLUSTRATIVE_PM25_THRESHOLD`; it is intended to demonstrate activity review and is not a universal safety limit.
+- **Planning reference:** `35 µg/m³` is an illustrative planning reference, not a universal health or legal safety threshold.
+- **Forecast estimates:** Activity-window averages may differ from actual conditions at a school.
+- **Demonstration data:** The school timetable uses demo activities rather than a live school's schedule.
+- **AI limitations:** Generated explanations may be incomplete or inaccurate and should be reviewed by staff.
+- **Data-source scope:** The described forecast pipeline uses Open-Meteo; it does not ingest CPCB station measurements.
 
-Forecasts may differ from actual conditions at a school. A school-specific deployment should use the school's coordinates, communicate data freshness, and follow applicable local public-health guidance. Airwise supports decisions; it does not replace official alerts or professional judgement.
+Airwise does not independently certify that an activity is safe or replace official public-health guidance. School staff retain final decision-making responsibility.
 
 ## Team
 
 **404: Clean Air Not Found**  
-**Project:** Airwise — School Air Quality Intelligence
-
-Made for Environmental Hacks.
+Built for AWS / WeMakeDevs Environmental Hacks.
